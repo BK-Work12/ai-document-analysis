@@ -65,12 +65,15 @@ class DocumentChatController extends Controller
      */
     public function conversations(Document $document)
     {
+        // Eager load relationships needed for conversation context
+        $document->load(['tags', 'user']);
+        
         // Get or create the single conversation for this document
         $conversation = $document->conversations()->first();
         
         if (!$conversation) {
             $conversation = $this->chatService->createConversation(
-                $document->id,
+                $document,
                 auth()->id(),
                 'Document Analysis Chat'
             );
