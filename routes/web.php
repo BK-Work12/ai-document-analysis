@@ -13,6 +13,7 @@ use App\Http\Controllers\Document\DocumentUploadController;
 use App\Http\Controllers\Document\DocumentMessageController;
 use App\Http\Controllers\Admin\JobTrackingController;
 use App\Http\Controllers\EmailPreferencesController;
+use App\Http\Controllers\SESWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -98,5 +99,8 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+// SES webhook for bounce/complaint handling
+Route::post('/api/ses-webhook', [SESWebhookController::class, 'handle'])->name('ses.webhook');
 
 require __DIR__.'/auth.php';
