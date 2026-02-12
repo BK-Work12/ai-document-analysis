@@ -29,6 +29,10 @@ class ChatMessageNotification extends Notification
      */
     public function via(object $notifiable): array
     {
+        // Only send if user has opted in
+        if (!$notifiable->receives_notifications) {
+            return [];
+        }
         return ['database', 'mail'];
     }
 
@@ -47,7 +51,10 @@ class ChatMessageNotification extends Notification
             ->line("You have a new message from {$this->sender->name} regarding the document: {$this->document->original_filename}")
             ->line("Message: \"{$this->message->message}\"")
             ->action('View Chat', $chatUrl)
-            ->line('Thank you for using our platform!');
+            ->line('Thank you for using our platform!')
+            ->withSymfonyMessage(function ($message) {
+                $message->getHeaders()->addTextHeader('List-Unsubscribe', '<' . route('email.unsubscribe', $this->sender->email_unsubscribe_token ?? '') . '>');
+            });
     }
 
     /**

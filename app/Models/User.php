@@ -23,6 +23,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
         'role',
+        'receives_notifications',
+        'email_unsubscribe_token',
     ];
 
     /**
@@ -45,7 +47,22 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'receives_notifications' => 'boolean',
         ];
+    }
+
+    /**
+     * Boot the model - generate unsubscribe token on creation
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->email_unsubscribe_token)) {
+                $model->email_unsubscribe_token = bin2hex(random_bytes(32));
+            }
+        });
     }
 
     public function isAdmin(): bool

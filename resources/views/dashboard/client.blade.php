@@ -2,6 +2,46 @@
     <x-slot name="header">Document Submission</x-slot>
 
     <div class="min-h-screen bg-gray-50">
+        <!-- Progress Bar and Missing Files Alert -->
+        <div class="w-full bg-white pt-6 px-0 sm:px-6">
+            @php
+                $totalRequired = $requirements->count();
+                $uploadedTypes = $documents->pluck('doc_type')->unique();
+                $requiredTypes = $requirements->pluck('doc_type');
+                $missingTypes = $requiredTypes->diff($uploadedTypes);
+                $uploadedCount = $uploadedTypes->count();
+                $progressPercent = $totalRequired > 0 ? round(($uploadedCount / $totalRequired) * 100) : 0;
+            @endphp
+            <div class="mb-6 px-0 sm:px-4 md:px-8">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"/></svg>
+                        <span class="text-base font-semibold text-blue-900">Upload Progress</span>
+                    </div>
+                    <span class="text-sm font-semibold text-blue-700">{{ $uploadedCount }} <span class="text-gray-400">/</span> {{ $totalRequired }}</span>
+                </div>
+                <div class="relative w-full h-4 bg-gray-200 rounded-full overflow-hidden shadow-sm mb-2">
+                    <div class="absolute left-0 top-0 h-4 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500" style="width: {{ $progressPercent }}%"></div>
+                    <div class="absolute inset-0 flex items-center justify-center text-xs font-semibold text-blue-900">{{ $progressPercent }}%</div>
+                </div>
+                @if ($missingTypes->count() > 0)
+                    <div class="mb-2 p-4 rounded-xl border-l-4 border-red-500 bg-red-50 flex items-start gap-3 shadow-sm animate-pulse-slow w-full">
+                        <svg class="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/></svg>
+                        <div>
+                            <div class="font-bold text-red-700 mb-1">Missing files</div>
+                            <ul class="list-disc ml-6 text-red-700 text-sm">
+                                @foreach ($requirements as $req)
+                                    @if ($missingTypes->contains($req->doc_type))
+                                        <li>{{ ucfirst(str_replace('_', ' ', $req->doc_type)) }}</li>
+                                    @endif
+                                @endforeach
+                            </ul>
+                            <div class="text-xs text-red-600 mt-2 font-medium">Please upload the above files to complete your submission.</div>
+                        </div>
+                    </div>
+                @endif
+            </div>
+        </div>
         <div class="max-w-7xl mx-auto p-6">
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <!-- Left Sidebar - Upload Form -->

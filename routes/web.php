@@ -12,11 +12,16 @@ use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Document\DocumentUploadController;
 use App\Http\Controllers\Document\DocumentMessageController;
 use App\Http\Controllers\Admin\JobTrackingController;
+use App\Http\Controllers\EmailPreferencesController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome-custom');
 });
+
+// Email Preferences (unsubscribe/resubscribe)
+Route::get('/email/unsubscribe/{token}', [EmailPreferencesController::class, 'unsubscribe'])->name('email.unsubscribe');
+Route::get('/email/resubscribe/{token}', [EmailPreferencesController::class, 'resubscribe'])->name('email.resubscribe');
 
 // Client Dashboard
 Route::middleware(['auth', 'verified', 'role:client'])->group(function () {

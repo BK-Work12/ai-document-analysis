@@ -19,12 +19,17 @@ class DocumentUploadedNotification extends Notification
 
     public function via(object $notifiable): array
     {
+        // Only send if user has opted in
+        if (!$notifiable->receives_notifications) {
+            return [];
+        }
         return ['database', 'mail'];
     }
 
     public function toMail(object $notifiable): MailMessage
     {
         $docType = ucwords(str_replace('_', ' ', $this->document->doc_type));
+        $unsubscribeUrl = route('email.unsubscribe', $notifiable->email_unsubscribe_token);
 
         return (new MailMessage)
             ->subject("New document upload from {$this->sender->name}")
@@ -32,7 +37,10 @@ class DocumentUploadedNotification extends Notification
             ->line("{$this->sender->name} uploaded a document: {$this->document->original_filename}")
             ->line("Document type: {$docType}")
             ->action('View Client', route('admin.clients.show', $this->document->user_id))
-            ->line('Thank you for using our platform!');
+            ->line('Thank you for using our platform!')
+            ->withSymfonyMessage(function ($message) {
+                $message->getHeaders()->addTextHeader('List-Unsubscribe', '<' . route('email.unsubscribe', $this->sender->email_unsubscribe_token ?? '') . '>');
+            });
     }
 
     public function toDatabase(object $notifiable): array
