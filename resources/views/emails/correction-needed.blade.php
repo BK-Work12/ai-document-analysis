@@ -17,7 +17,7 @@ Resubmit Document
 
 ---
 
-**SaferWealth™**  
+**Analyst Saferwealth**  
 Sean Cavanagh, Founder & CEO  
 416-545-9559  
 [info@saferwealth.com](mailto:info@saferwealth.com)

@@ -1,5 +1,5 @@
 <x-app-layout>
-    <x-slot name="header">AI Document Analysis</x-slot>
+    <x-slot name="header">Analyst Saferwealth - Document Analysis</x-slot>
 
 <style>
 @keyframes fadeIn {
