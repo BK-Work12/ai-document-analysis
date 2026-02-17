@@ -22,6 +22,6 @@ Sean Cavanagh, Founder & CEO
 416-545-9559  
 [info@saferwealth.com](mailto:info@saferwealth.com)
 
-[Unsubscribe from emails]({{ route('email.unsubscribe', $user->email_unsubscribe_token) }})
+[Unsubscribe from emails]({{ route('email.unsubscribe', $user->ensureEmailUnsubscribeToken()) }})
 
 @endcomponent

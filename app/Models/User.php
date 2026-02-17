@@ -79,4 +79,14 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(Document::class);
     }
+
+    public function ensureEmailUnsubscribeToken(): string
+    {
+        if (empty($this->email_unsubscribe_token)) {
+            $this->email_unsubscribe_token = bin2hex(random_bytes(32));
+            $this->saveQuietly();
+        }
+
+        return $this->email_unsubscribe_token;
+    }
 }

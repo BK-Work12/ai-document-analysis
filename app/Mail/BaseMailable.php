@@ -28,9 +28,14 @@ abstract class BaseMailable extends Mailable
      */
     protected function addUnsubscribeHeader($user)
     {
+        if ($user && method_exists($user, 'ensureEmailUnsubscribeToken')) {
+            return route('email.unsubscribe', $user->ensureEmailUnsubscribeToken());
+        }
+
         if ($user && $user->email_unsubscribe_token) {
             return route('email.unsubscribe', $user->email_unsubscribe_token);
         }
+
         return null;
     }
 }

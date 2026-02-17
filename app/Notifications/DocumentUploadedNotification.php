@@ -29,7 +29,7 @@ class DocumentUploadedNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         $docType = ucwords(str_replace('_', ' ', $this->document->doc_type));
-        $unsubscribeUrl = route('email.unsubscribe', $notifiable->email_unsubscribe_token);
+        $unsubscribeUrl = route('email.unsubscribe', $notifiable->ensureEmailUnsubscribeToken());
 
         return (new MailMessage)
             ->subject("New document upload from {$this->sender->name}")
@@ -38,8 +38,8 @@ class DocumentUploadedNotification extends Notification
             ->line("Document type: {$docType}")
             ->action('View Client', route('admin.clients.show', $this->document->user_id))
             ->line('Thank you for using our platform!')
-            ->withSymfonyMessage(function ($message) {
-                $message->getHeaders()->addTextHeader('List-Unsubscribe', '<' . route('email.unsubscribe', $this->sender->email_unsubscribe_token ?? '') . '>');
+            ->withSymfonyMessage(function ($message) use ($unsubscribeUrl) {
+                $message->getHeaders()->addTextHeader('List-Unsubscribe', '<' . $unsubscribeUrl . '>');
             });
     }
 

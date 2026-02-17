@@ -44,6 +44,7 @@ class ChatMessageNotification extends Notification
         $chatUrl = $notifiable->isAdmin()
             ? route('admin.chats.show', [$this->document->user_id, $this->document->id])
             : route('chats.show', $this->document->id);
+        $unsubscribeUrl = route('email.unsubscribe', $notifiable->ensureEmailUnsubscribeToken());
 
         return (new MailMessage)
             ->subject("New Chat Message from {$this->sender->name}")
@@ -52,8 +53,8 @@ class ChatMessageNotification extends Notification
             ->line("Message: \"{$this->message->message}\"")
             ->action('View Chat', $chatUrl)
             ->line('Thank you for using our platform!')
-            ->withSymfonyMessage(function ($message) {
-                $message->getHeaders()->addTextHeader('List-Unsubscribe', '<' . route('email.unsubscribe', $this->sender->email_unsubscribe_token ?? '') . '>');
+            ->withSymfonyMessage(function ($message) use ($unsubscribeUrl) {
+                $message->getHeaders()->addTextHeader('List-Unsubscribe', '<' . $unsubscribeUrl . '>');
             });
     }
 
