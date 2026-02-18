@@ -29,7 +29,7 @@ class DocumentCorrectionNeededMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.correction-needed',
+            markdown: 'emails.correction-needed',
         );
     }
 }

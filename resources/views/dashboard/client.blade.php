@@ -92,7 +92,7 @@
                                         <input id="file" name="file" type="file" required
                                             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" class="sr-only">
                                         <p class="text-xs text-gray-500">or drag and drop</p>
-                                        <p class="text-xs text-gray-400">PDF, DOC, JPG (max 10MB)</p>
+                                        <p class="text-xs text-gray-400">PDF, DOC, JPG (max 20MB)</p>
                                     </div>
                                 </div>
                                 <p id="fileName" class="text-xs text-gray-600 mt-2"></p>
@@ -238,7 +238,7 @@
                             <div class="p-6 border-t border-gray-200 bg-gray-50">
                                 <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
                                     <div class="text-sm text-gray-600">
-                                        Showing <span id="startRecord">1</span>-<span id="endRecord">10</span> of <span id="totalRecords">{{ count($documents) }}</span> documents
+                                        Showing <span id="startRecord">1</span>-<span id="endRecord">20</span> of <span id="totalRecords">{{ count($documents) }}</span> documents
                                     </div>
                                     <div class="flex gap-2">
                                         <button onclick="prevPage()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 transition">← Prev</button>
@@ -257,7 +257,7 @@
     <script>
         // Table Navigation and Search
         let currentPage = 1;
-        const recordsPerPage = 10;
+        const recordsPerPage = 20;
         let allRows = [];
         let filteredRows = [];
 

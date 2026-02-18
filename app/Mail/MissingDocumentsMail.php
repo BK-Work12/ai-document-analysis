@@ -28,7 +28,7 @@ class MissingDocumentsMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.missing-documents',
+            markdown: 'emails.missing-documents',
         );
     }
 }

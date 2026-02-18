@@ -28,7 +28,7 @@ class ProfileUpdateMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.profile-update',
+            markdown: 'emails.profile-update',
         );
     }
 }

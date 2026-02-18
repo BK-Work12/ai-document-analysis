@@ -8,6 +8,7 @@ use App\Models\Document;
 use App\Models\User;
 use App\Notifications\DocumentUploadedNotification;
 use App\Events\DocumentUploaded;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -55,13 +56,29 @@ class DocumentUploadController extends Controller
             ]
         );
 
-        // Dispatch event for listeners to process
-        DocumentUploaded::dispatch($document);
+        // Dispatch event for listeners to process (non-blocking for upload success)
+        try {
+            DocumentUploaded::dispatch($document);
+        } catch (\Throwable $exception) {
+            Log::warning('Failed to dispatch document processing event after upload.', [
+                'document_id' => $document->id,
+                'user_id' => $user->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
 
-        // Notify admins about new upload
-        $admins = User::where('role', 'admin')->get();
-        foreach ($admins as $admin) {
-            $admin->notify(new DocumentUploadedNotification($document, $user));
+        // Notify admins about new upload (do not fail upload if notification channel is unavailable)
+        try {
+            $admins = User::where('role', 'admin')->get();
+            foreach ($admins as $admin) {
+                $admin->notify(new DocumentUploadedNotification($document, $user));
+            }
+        } catch (\Throwable $exception) {
+            Log::warning('Failed to notify admins after document upload.', [
+                'document_id' => $document->id,
+                'user_id' => $user->id,
+                'error' => $exception->getMessage(),
+            ]);
         }
 
         return response()->json([
