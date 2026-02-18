@@ -32,19 +32,14 @@ class DocumentAnalysisJob implements ShouldQueue
 
     /**
      * The number of times the job may be attempted.
-     * Increased to allow waiting for extraction to complete (up to 10 min total with backoff).
+     * Only retry on actual transient failures (e.g., AWS service timeout).
      */
-    public int $tries = 5;
+    public int $tries = 2;
 
     /**
      * The maximum number of seconds to wait before retrying the job.
      */
     public int $backoff = 300; // 5 minutes
-
-    /**
-     * The maximum time to wait for extraction to complete before giving up (in seconds).
-     */
-    private const MAX_EXTRACTION_WAIT_SECONDS = 600; // 10 minutes
 
     public function __construct(
         public Document $document,
@@ -59,38 +54,9 @@ class DocumentAnalysisJob implements ShouldQueue
             // Refresh model to avoid stale queued model state
             $this->document->refresh();
 
-            // Verify we have extracted text (or wait for extraction to complete)
+            // Verify extraction was completed before this job runs
             if (!$this->hasExtractedText()) {
-                $extractionStatus = $this->document->extraction_status;
-
-                if ($extractionStatus === 'processing') {
-                    // Check if extraction has been stuck too long
-                    if ($this->hasExtractionTimedOut()) {
-                        throw new Exception('Document extraction timed out after ' . self::MAX_EXTRACTION_WAIT_SECONDS . ' seconds.');
-                    }
-
-                    \Illuminate\Support\Facades\Log::info('DocumentAnalysisJob waiting for extraction', [
-                        'document_id' => $this->document->id,
-                        'attempt' => $this->attempts(),
-                    ]);
-                    
-                    $this->release(120);
-                    return;
-                }
-
-                if ($extractionStatus === 'failed') {
-                    $error = $this->document->extraction_error ?: 'Unknown extraction failure';
-                    throw new Exception("Document analysis blocked: text extraction failed ({$error}).");
-                }
-
-                // Kick off extraction if it was never started, then retry analysis later
-                \Illuminate\Support\Facades\Log::info('DocumentAnalysisJob initiating extraction', [
-                    'document_id' => $this->document->id,
-                ]);
-                
-                TextExtractJob::dispatch($this->document);
-                $this->release(120);
-                return;
+                throw new Exception('Document must be extracted before analysis. TextExtractJob may have failed or not completed.');
             }
 
             // Mark as processing
@@ -142,13 +108,25 @@ class DocumentAnalysisJob implements ShouldQueue
             // Create auto-review
             $this->createAutoReview($analysisResult, $confidenceScore, $riskFlags);
 
-            // Auto-request correction if issues detected
-            $this->autoRequestCorrection($statusService, $classification, $riskFlags, $missingFields, $failedChecks);
+            // Auto-request correction if issues detected, or mark approved if all good
+            $hasIssues = !empty($riskFlags) || !empty($missingFields) || !empty($failedChecks) 
+                || ($classification && $classification !== $this->document->doc_type);
+            
+            if ($hasIssues) {
+                $this->autoRequestCorrection($statusService, $classification, $riskFlags, $missingFields, $failedChecks);
+            } else {
+                // No issues found - mark document as approved
+                $previousStatus = $this->document->status;
+                $this->document->update(['status' => 'approved']);
+                DocumentStatusUpdated::dispatch($this->document->refresh(), $previousStatus, 'approved');
+            }
 
             \Illuminate\Support\Facades\Log::info('DocumentAnalysisJob completed', [
                 'document_id' => $this->document->id,
+                'status' => $this->document->status,
                 'confidence_score' => $confidenceScore,
                 'risk_flags_count' => count($riskFlags),
+                'has_issues' => $hasIssues,
             ]);
 
         } catch (Exception $e) {
@@ -171,21 +149,6 @@ class DocumentAnalysisJob implements ShouldQueue
     {
         return is_string($this->document->extracted_text)
             && trim($this->document->extracted_text) !== '';
-    }
-
-    /**
-     * Check if extraction has been stuck in processing state too long
-     * 
-     * @return bool
-     */
-    protected function hasExtractionTimedOut(): bool
-    {
-        if (!$this->document->extraction_started_at) {
-            return false;
-        }
-
-        $elapsed = now()->diffInSeconds($this->document->extraction_started_at);
-        return $elapsed > self::MAX_EXTRACTION_WAIT_SECONDS;
     }
 
     /**
