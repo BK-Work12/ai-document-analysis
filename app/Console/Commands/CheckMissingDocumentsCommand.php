@@ -48,6 +48,7 @@ class CheckMissingDocumentsCommand extends Command
                         'type' => 'missing_documents_reminder',
                         'to' => $user->email,
                         'status' => 'failed',
+                        'subject' => 'Missing Documents Reminder',
                         'error' => $e->getMessage(),
                     ]);
                 }

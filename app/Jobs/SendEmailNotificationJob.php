@@ -55,9 +55,20 @@ class SendEmailNotificationJob implements ShouldQueue
         EmailLog::create([
             'user_id' => $userId,
             'type' => $type,
+            'subject' => $this->resolveSubject($type),
             'to' => $to,
             'status' => $error ? 'failed' : 'queued',
             'error' => $error,
         ]);
+    }
+
+    private function resolveSubject(string $type): string
+    {
+        return match ($type) {
+            'correction_needed' => 'Document Correction Needed',
+            'missing_documents_reminder' => 'Missing Documents Reminder',
+            'error' => 'Email Notification Error',
+            default => ucwords(str_replace('_', ' ', $type)),
+        };
     }
 }

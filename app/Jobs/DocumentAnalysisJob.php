@@ -50,9 +50,27 @@ class DocumentAnalysisJob implements ShouldQueue
     public function handle(DocumentAnalysisService $analysisService, DocumentStatusService $statusService): void
     {
         try {
-            // Verify we have extracted text
-            if (!$this->document->extracted_text) {
-                throw new Exception('Document has no extracted text. Run TextExtractJob first.');
+            // Refresh model to avoid stale queued model state
+            $this->document->refresh();
+
+            // Verify we have extracted text (or wait for extraction to complete)
+            if (!$this->hasExtractedText()) {
+                $extractionStatus = $this->document->extraction_status;
+
+                if ($extractionStatus === 'processing') {
+                    $this->release(120);
+                    return;
+                }
+
+                if ($extractionStatus === 'failed') {
+                    $error = $this->document->extraction_error ?: 'Unknown extraction failure';
+                    throw new Exception("Document analysis blocked: text extraction failed ({$error}).");
+                }
+
+                // Kick off extraction if it was never started, then retry analysis later
+                TextExtractJob::dispatch($this->document);
+                $this->release(120);
+                return;
             }
 
             // Mark as processing
@@ -127,6 +145,12 @@ class DocumentAnalysisJob implements ShouldQueue
 
             throw $e;
         }
+    }
+
+    protected function hasExtractedText(): bool
+    {
+        return is_string($this->document->extracted_text)
+            && trim($this->document->extracted_text) !== '';
     }
 
     /**
