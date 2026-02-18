@@ -83,6 +83,7 @@ class DocumentAnalysisJob implements ShouldQueue
             $validationChecks = $analysisResult['validation_checks'] ?? [];
             $failedChecks = $this->extractFailedValidationChecks($validationChecks);
             $classification = $analysisResult['classification'] ?? $this->document->doc_type;
+            $classification = substr($classification, 0, 255);
             $confidenceScore = $result['confidence_score'] ?? 0;
 
             // Store analysis results
