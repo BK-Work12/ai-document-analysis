@@ -84,6 +84,14 @@
                     <span x-show="sidebarOpen" class="text-sm font-medium">Document Conversations</span>
                 </a>
 
+                <a href="{{ route('admin.users.document-chat.index') }}"
+                   class="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors {{ request()->routeIs('admin.users.document-chat.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-slate-700' }}">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V10a2 2 0 012-2h2m10 0V6a2 2 0 00-2-2H9a2 2 0 00-2 2v2m10 0H7"></path>
+                    </svg>
+                    <span x-show="sidebarOpen" class="text-sm font-medium">User Document AI Chat</span>
+                </a>
+
                 <a href="{{ route('admin.users.index') }}" 
                    class="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors {{ request()->routeIs('admin.users.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-slate-700' }}">
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -175,7 +175,7 @@ function loadUserDocuments(userId) {
             
             const docsList = document.getElementById('documentsList');
             if (data.documents.length === 0) {
-                docsList.innerHTML = '<p class="text-center text-gray-400 py-8">No analyzed documents</p>';
+                docsList.innerHTML = '<p class="text-center text-gray-400 py-8">No documents found</p>';
             } else {
                 docsList.innerHTML = data.documents.map(doc => `
                     <a href="#" 

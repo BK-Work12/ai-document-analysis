@@ -5,6 +5,7 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\Dashboard\ClientDashboardController;
 use App\Http\Controllers\Dashboard\AdminDashboardController;
 use App\Http\Controllers\Admin\DocumentChatController;
+use App\Http\Controllers\Admin\UserDocumentChatController;
 use App\Http\Controllers\Admin\AdminChatController;
 use App\Http\Controllers\Admin\DocumentTypeController;
 use App\Http\Controllers\Admin\UserController;
@@ -86,6 +87,11 @@ Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
     Route::patch('/admin/conversations/{conversation}/messages/{message}', [DocumentChatController::class, 'updateMessage'])->name('admin.conversations.messages.update');
     Route::patch('/admin/conversations/{conversation}', [DocumentChatController::class, 'updateStatus'])->name('admin.conversations.update');
     Route::delete('/admin/conversations/{conversation}', [DocumentChatController::class, 'destroy'])->name('admin.conversations.destroy');
+
+    // User-wide Document AI Chat (all documents per client)
+    Route::get('/admin/users/document-chat', [UserDocumentChatController::class, 'index'])->name('admin.users.document-chat.index');
+    Route::get('/admin/users/{user}/document-chat/conversation', [UserDocumentChatController::class, 'conversation'])->name('admin.users.document-chat.conversation');
+    Route::post('/admin/users/document-chat/conversations/{conversation}/messages', [UserDocumentChatController::class, 'sendMessage'])->name('admin.users.document-chat.messages.store');
     
     // Job Tracking
     Route::get('/admin/jobs', [JobTrackingController::class, 'index'])->name('admin.jobs.index');

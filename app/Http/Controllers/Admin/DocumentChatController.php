@@ -33,14 +33,14 @@ class DocumentChatController extends Controller
     }
 
     /**
-     * Get user's documents with analysis
+     * Get user's documents
      * GET /admin/documents/chat/users/{user}/documents
      */
     public function userDocuments(\App\Models\User $user)
     {
         $documents = $user->documents()
-            ->where('analysis_status', 'completed')
-            ->orderByDesc('analysis_completed_at')
+            ->orderByDesc('uploaded_at')
+            ->orderByDesc('created_at')
             ->get();
 
         return response()->json([
@@ -54,6 +54,7 @@ class DocumentChatController extends Controller
                 'id' => $doc->id,
                 'filename' => $doc->original_filename,
                 'type' => $doc->doc_type,
+                'analysis_status' => $doc->analysis_status,
                 'analyzed_at' => $doc->analysis_completed_at?->format('Y-m-d H:i:s'),
             ]),
         ]);

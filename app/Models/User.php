@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\AdminUserConversation;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -78,6 +79,16 @@ class User extends Authenticatable implements MustVerifyEmail
     public function documents()
     {
         return $this->hasMany(Document::class);
+    }
+
+    public function adminUserConversationsAsClient()
+    {
+        return $this->hasMany(AdminUserConversation::class, 'client_user_id');
+    }
+
+    public function adminUserConversationsAsAdmin()
+    {
+        return $this->hasMany(AdminUserConversation::class, 'admin_user_id');
     }
 
     public function ensureEmailUnsubscribeToken(): string
