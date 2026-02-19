@@ -14,6 +14,14 @@ class DocumentStatusService
      */
     public function checkAndUpdateDocumentStatus(Document $document): void
     {
+        if ($document->extraction_status !== 'completed' || $document->analysis_status !== 'completed') {
+            return;
+        }
+
+        if (!$document->analysis_result) {
+            return;
+        }
+
         $user = $document->user;
         
         // Get all active document requirements

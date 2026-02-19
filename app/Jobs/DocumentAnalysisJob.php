@@ -81,6 +81,7 @@ class DocumentAnalysisJob implements ShouldQueue
             $riskFlags = $analysisResult['risk_flags'] ?? [];
             $missingFields = $analysisResult['missing_fields'] ?? [];
             $validationChecks = $analysisResult['validation_checks'] ?? [];
+            $extractedData = $analysisResult['extracted_data'] ?? [];
             $failedChecks = $this->extractFailedValidationChecks($validationChecks);
             $classification = $analysisResult['classification'] ?? $this->document->doc_type;
             $classification = substr($classification, 0, 255);
@@ -110,16 +111,45 @@ class DocumentAnalysisJob implements ShouldQueue
             $this->createAutoReview($analysisResult, $confidenceScore, $riskFlags);
 
             // Auto-request correction if issues detected, or mark approved if all good
-            $hasIssues = !empty($riskFlags) || !empty($missingFields) || !empty($failedChecks) 
-                || ($classification && $classification !== $this->document->doc_type);
+            $analysisInsufficient = $this->isAnalysisInsufficient(
+                $classification,
+                $confidenceScore,
+                $extractedData,
+                $validationChecks
+            );
+
+            $classificationMismatch = $classification && $classification !== $this->document->doc_type;
+            $hasRiskFlags = !empty($riskFlags);
+            $hasMissingFields = !empty($missingFields);
+            $hasFailedChecks = !empty($failedChecks);
+
+            $canAutoApprove = $this->canAutoApprove(
+                $classificationMismatch,
+                $hasRiskFlags,
+                $hasMissingFields,
+                $hasFailedChecks,
+                $analysisInsufficient,
+                $confidenceScore,
+                $extractedData,
+                $validationChecks
+            );
+
+            $hasCorrectionIssues = $classificationMismatch
+                || $hasRiskFlags
+                || $hasMissingFields
+                || $hasFailedChecks;
             
-            if ($hasIssues) {
-                $this->autoRequestCorrection($statusService, $classification, $riskFlags, $missingFields, $failedChecks);
-            } else {
-                // No issues found - mark document as approved
+            if ($canAutoApprove) {
+                // Fully clean review - mark document as approved
                 $previousStatus = $this->document->status;
                 $this->document->update(['status' => 'approved']);
                 DocumentStatusUpdated::dispatch($this->document->refresh(), $previousStatus, 'approved');
+            } elseif ($hasCorrectionIssues) {
+                $this->autoRequestCorrection($statusService, $classification, $riskFlags, $missingFields, $failedChecks);
+            } else {
+                // Analysis was not clean enough for approval, but no explicit correction issues.
+                // Keep status pending for manual admin review.
+                $this->document->update(['status' => 'pending']);
             }
 
             \Illuminate\Support\Facades\Log::info('DocumentAnalysisJob completed', [
@@ -127,7 +157,9 @@ class DocumentAnalysisJob implements ShouldQueue
                 'status' => $this->document->status,
                 'confidence_score' => $confidenceScore,
                 'risk_flags_count' => count($riskFlags),
-                'has_issues' => $hasIssues,
+                'analysis_insufficient' => $analysisInsufficient,
+                'has_correction_issues' => $hasCorrectionIssues,
+                'can_auto_approve' => $canAutoApprove,
             ]);
 
         } catch (Exception $e) {
@@ -150,6 +182,54 @@ class DocumentAnalysisJob implements ShouldQueue
     {
         return is_string($this->document->extracted_text)
             && trim($this->document->extracted_text) !== '';
+    }
+
+    protected function isAnalysisInsufficient(
+        string $classification,
+        float $confidenceScore,
+        array $extractedData,
+        array $validationChecks
+    ): bool {
+        if (trim($classification) === '') {
+            return true;
+        }
+
+        if ($confidenceScore <= 0) {
+            return true;
+        }
+
+        if (empty($extractedData) && empty($validationChecks)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    protected function canAutoApprove(
+        bool $classificationMismatch,
+        bool $hasRiskFlags,
+        bool $hasMissingFields,
+        bool $hasFailedChecks,
+        bool $analysisInsufficient,
+        float $confidenceScore,
+        array $extractedData,
+        array $validationChecks
+    ): bool {
+        if ($classificationMismatch || $hasRiskFlags || $hasMissingFields || $hasFailedChecks || $analysisInsufficient) {
+            return false;
+        }
+
+        // Require strong confidence for fully automatic approval.
+        if ($confidenceScore < 85) {
+            return false;
+        }
+
+        // Require evidence that review actually checked content.
+        if (empty($extractedData) || empty($validationChecks)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
