@@ -141,7 +141,11 @@ class DocumentAnalysisJob implements ShouldQueue
                 $validationChecks
             );
 
-            $classificationMismatch = $classification && $classification !== $this->document->doc_type;
+            $normalizedClassifiedType = $this->normalizeDocTypeForComparison($classification);
+            $normalizedExpectedType = $this->normalizeDocTypeForComparison((string) $this->document->doc_type);
+            $classificationMismatch = $normalizedClassifiedType !== ''
+                && $normalizedExpectedType !== ''
+                && $normalizedClassifiedType !== $normalizedExpectedType;
             $hasRiskFlags = !empty($riskFlags);
             $hasMissingFields = !empty($missingFields);
             $hasFailedChecks = !empty($failedChecks);
@@ -467,7 +471,8 @@ class DocumentAnalysisJob implements ShouldQueue
         $hasRiskFlags = !empty($riskFlags);
         $hasMissingFields = !empty($missingFields);
         $hasFailedChecks = !empty($failedChecks);
-        $classificationMismatch = $classification && $classification !== $this->document->doc_type;
+        $classificationMismatch = $this->normalizeDocTypeForComparison($classification) !== ''
+            && $this->normalizeDocTypeForComparison($classification) !== $this->normalizeDocTypeForComparison((string) $this->document->doc_type);
 
         if (!$hasRiskFlags && !$hasMissingFields && !$hasFailedChecks && !$classificationMismatch) {
             return;
@@ -646,6 +651,34 @@ class DocumentAnalysisJob implements ShouldQueue
         }
 
         return '';
+    }
+
+    protected function normalizeDocTypeForComparison(?string $value): string
+    {
+        $raw = strtolower(trim((string) $value));
+        if ($raw === '') {
+            return '';
+        }
+
+        if (preg_match('/financial\s*statements?.*year\s*([0-9]+)/i', $raw, $matches) === 1) {
+            return 'financial_statements_year_' . $matches[1];
+        }
+
+        if (str_contains($raw, 'interim') && str_contains($raw, 'financial')) {
+            return 'interim_financial_statements';
+        }
+
+        if (str_contains($raw, 'shareholder') && str_contains($raw, 'registry')) {
+            return 'shareholder_registry';
+        }
+
+        if (str_contains($raw, 'bank') && str_contains($raw, 'statement')) {
+            return 'bank_statements';
+        }
+
+        return (string) Str::of($raw)
+            ->replaceMatches('/[^a-z0-9]+/', '_')
+            ->trim('_');
     }
 
     /**
