@@ -244,7 +244,15 @@ Please analyze this document according to the system prompt above. Provide:
 4. Risk Flags - any red flags, inconsistencies, or concerns
 5. Confidence Score - how confident (0-100) you are in this analysis
 
-Format your response as structured JSON.
+Return ONLY a valid JSON object (no markdown, no prose) using this exact top-level schema:
+{
+    "classification": string|null,
+    "extracted_data": object|array,
+    "validation_checks": array,
+    "risk_flags": array,
+    "missing_fields": array,
+    "confidence_score": number
+}
 PROMPT;
     }
 
@@ -266,7 +274,15 @@ Analyze the attached image directly. Read all visible text from the image and th
 4. Risk Flags - any red flags, inconsistencies, or concerns
 5. Confidence Score - how confident (0-100) you are in this analysis
 
-Format your response as structured JSON.
+Return ONLY a valid JSON object (no markdown, no prose) using this exact top-level schema:
+{
+    "classification": string|null,
+    "extracted_data": object|array,
+    "validation_checks": array,
+    "risk_flags": array,
+    "missing_fields": array,
+    "confidence_score": number
+}
 PROMPT;
     }
 
@@ -545,6 +561,14 @@ PROMPT;
     {
         return match (strtolower(trim($mime))) {
             'application/pdf' => 'pdf',
+            'application/msword' => 'doc',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+            'application/vnd.ms-excel' => 'xls',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+            'text/plain' => 'txt',
+            'text/markdown' => 'md',
+            'text/html' => 'html',
+            'text/csv', 'application/csv' => 'csv',
             default => null,
         };
     }
@@ -557,21 +581,17 @@ PROMPT;
      */
     protected function parseAnalysisResponse(string $response): array
     {
-        // Try to extract JSON from response
-        $jsonMatch = preg_match('/\{[\s\S]*\}/', $response, $matches);
-        
-        if ($jsonMatch && isset($matches[0])) {
-            $parsed = json_decode($matches[0], true);
-            if ($parsed) {
-                return [
-                    'classification' => $parsed['classification'] ?? null,
-                    'extracted_data' => $parsed['extracted_data'] ?? [],
-                    'validation_checks' => $parsed['validation_checks'] ?? [],
-                    'risk_flags' => $parsed['risk_flags'] ?? [],
-                    'missing_fields' => $parsed['missing_fields'] ?? [],
-                    'confidence_score' => (float)($parsed['confidence_score'] ?? 0),
-                ];
-            }
+        $parsed = $this->decodeJsonObjectFromModelResponse($response);
+
+        if (is_array($parsed)) {
+            return [
+                'classification' => $parsed['classification'] ?? null,
+                'extracted_data' => $parsed['extracted_data'] ?? [],
+                'validation_checks' => is_array($parsed['validation_checks'] ?? null) ? $parsed['validation_checks'] : [],
+                'risk_flags' => is_array($parsed['risk_flags'] ?? null) ? $parsed['risk_flags'] : [],
+                'missing_fields' => is_array($parsed['missing_fields'] ?? null) ? $parsed['missing_fields'] : [],
+                'confidence_score' => (float)($parsed['confidence_score'] ?? 0),
+            ];
         }
 
         // Fallback: return raw response in structured format
@@ -594,13 +614,10 @@ PROMPT;
      */
     protected function parseCaseFindingsResponse(string $response): array
     {
-        $jsonMatch = preg_match('/\{[\s\S]*\}/', $response, $matches);
-        
-        if ($jsonMatch && isset($matches[0])) {
-            $parsed = json_decode($matches[0], true);
-            if ($parsed) {
-                return $parsed;
-            }
+        $parsed = $this->decodeJsonObjectFromModelResponse($response);
+
+        if (is_array($parsed)) {
+            return $parsed;
         }
 
         return [
@@ -611,6 +628,48 @@ PROMPT;
                 'human_review_required' => true,
             ],
         ];
+    }
+
+    protected function decodeJsonObjectFromModelResponse(string $response): ?array
+    {
+        $candidate = $this->extractJsonCandidate($response);
+
+        if ($candidate === null) {
+            return null;
+        }
+
+        $decoded = json_decode($candidate, true);
+        if (is_array($decoded)) {
+            return $decoded;
+        }
+
+        $repaired = preg_replace('/,\s*([}\]])/', '$1', $candidate);
+        if (!is_string($repaired)) {
+            return null;
+        }
+
+        $decoded = json_decode($repaired, true);
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    protected function extractJsonCandidate(string $response): ?string
+    {
+        if (preg_match('/```json\s*(\{[\s\S]*?\})\s*```/i', $response, $matches) === 1 && isset($matches[1])) {
+            return trim($matches[1]);
+        }
+
+        if (preg_match('/```\s*(\{[\s\S]*?\})\s*```/i', $response, $matches) === 1 && isset($matches[1])) {
+            return trim($matches[1]);
+        }
+
+        $start = strpos($response, '{');
+        $end = strrpos($response, '}');
+
+        if ($start === false || $end === false || $end <= $start) {
+            return null;
+        }
+
+        return trim(substr($response, $start, ($end - $start) + 1));
     }
 
     /**

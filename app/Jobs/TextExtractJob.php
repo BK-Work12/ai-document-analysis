@@ -74,7 +74,7 @@ class TextExtractJob implements ShouldQueue
             $useLocal = env('USE_LOCAL_STORAGE', true);
 
             if ($this->isWordDocumentMime($mimeType)) {
-                $this->processWordDocumentWithoutTextract($mimeType, $s3Key, $useLocal);
+                $this->processWordDocumentWithoutTextract($analysisService, $mimeType, $s3Key, $useLocal);
                 return;
             }
 
@@ -110,15 +110,11 @@ class TextExtractJob implements ShouldQueue
                     $feedback .= ' Claude fallback failed: ' . ($fallback['error'] ?? 'unknown error') . '.';
                 }
 
-                $this->updateDocument([
-                    'status' => 'needs_correction',
-                    'extraction_status' => 'failed',
-                    'extraction_error' => $feedback,
-                    'correction_feedback' => $feedback,
-                    'correction_requested_at' => now(),
-                    'extraction_completed_at' => now(),
-                ]);
-
+                $this->dispatchFallbackTextAnalysis(
+                    $feedback,
+                    'unsupported_format',
+                    true
+                );
                 return;
             }
 
@@ -183,15 +179,11 @@ class TextExtractJob implements ShouldQueue
                         $feedback .= ' Claude fallback failed: ' . ($fallback['error'] ?? 'unknown error') . '.';
                     }
 
-                    $this->updateDocument([
-                        'status' => 'needs_correction',
-                        'extraction_status' => 'failed',
-                        'extraction_error' => $feedback,
-                        'correction_feedback' => $feedback,
-                        'correction_requested_at' => now(),
-                        'extraction_completed_at' => now(),
-                    ]);
-
+                    $this->dispatchFallbackTextAnalysis(
+                        $feedback,
+                        'textract_unsupported',
+                        true
+                    );
                     return;
                 }
 
@@ -240,19 +232,12 @@ class TextExtractJob implements ShouldQueue
                 return;
             }
 
-            $this->updateDocument([
-                'extraction_status' => 'failed',
-                'extraction_error' => $e->getMessage(),
-                'extraction_completed_at' => now(),
-            ]);
-
-            // Log the error
-            \Illuminate\Support\Facades\Log::error('TextExtractJob failed', [
-                'document_id' => $this->document->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            throw $e;
+            $this->dispatchFallbackTextAnalysis(
+                $e->getMessage(),
+                'textract_exception',
+                false
+            );
+            return;
         }
     }
 
@@ -301,6 +286,15 @@ class TextExtractJob implements ShouldQueue
 
         return in_array(strtolower($mimeType), [
             'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'text/plain',
+            'text/markdown',
+            'text/html',
+            'text/csv',
+            'application/csv',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ], true);
     }
 
@@ -426,21 +420,24 @@ class TextExtractJob implements ShouldQueue
         ], true);
     }
 
-    protected function processWordDocumentWithoutTextract(?string $mimeType, string $s3Key, bool $useLocal): void
+    protected function processWordDocumentWithoutTextract(
+        DocumentAnalysisService $analysisService,
+        ?string $mimeType,
+        string $s3Key,
+        bool $useLocal
+    ): void
     {
         $normalizedMime = is_string($mimeType) ? strtolower($mimeType) : '';
 
         if ($normalizedMime === 'application/msword') {
-            $feedback = 'Legacy .doc files are not supported for automatic AI extraction. Please upload as .docx or PDF.';
+            $fallback = $this->tryDirectClaudeTextExtraction($analysisService, $s3Key, $mimeType, $useLocal);
+            if ($fallback['success']) {
+                return;
+            }
 
-            $this->updateDocument([
-                'status' => 'needs_correction',
-                'extraction_status' => 'failed',
-                'extraction_error' => $feedback,
-                'correction_feedback' => $feedback,
-                'correction_requested_at' => now(),
-                'extraction_completed_at' => now(),
-            ]);
+            $feedback = 'Legacy .doc extraction failed. Claude direct-document fallback failed: ' . ($fallback['error'] ?? 'unknown error');
+
+            $this->dispatchFallbackTextAnalysis($feedback, 'doc_fallback_failed', true);
 
             return;
         }
@@ -450,16 +447,14 @@ class TextExtractJob implements ShouldQueue
         $text = $this->extractTextFromDocxBytes($bytes);
 
         if (trim($text) === '') {
-            $feedback = 'DOCX file was uploaded, but readable text could not be extracted. Please re-upload as searchable PDF or clear DOCX.';
+            $fallback = $this->tryDirectClaudeTextExtraction($analysisService, $s3Key, $mimeType, $useLocal);
+            if ($fallback['success']) {
+                return;
+            }
 
-            $this->updateDocument([
-                'status' => 'needs_correction',
-                'extraction_status' => 'failed',
-                'extraction_error' => $feedback,
-                'correction_feedback' => $feedback,
-                'correction_requested_at' => now(),
-                'extraction_completed_at' => now(),
-            ]);
+            $feedback = 'DOCX local extraction failed and Claude fallback could not extract text: ' . ($fallback['error'] ?? 'unknown error');
+
+            $this->dispatchFallbackTextAnalysis($feedback, 'docx_fallback_failed', true);
 
             return;
         }
@@ -527,5 +522,49 @@ class TextExtractJob implements ShouldQueue
         } finally {
             @unlink($tempFile);
         }
+    }
+
+    protected function dispatchFallbackTextAnalysis(string $reason, string $mode, bool $markCorrection): void
+    {
+        $context = $this->buildFallbackAnalysisText($reason);
+
+        $attributes = [
+            'status' => $markCorrection ? 'needs_correction' : 'pending',
+            'extraction_status' => 'failed',
+            'extraction_error' => $reason,
+            'extracted_text' => $context,
+            'extraction_completed_at' => now(),
+            'text_extraction_metadata' => [
+                'skipped' => true,
+                'mode' => $mode,
+                'reason' => $reason,
+                'fallback_text_analysis' => true,
+            ],
+        ];
+
+        if ($markCorrection) {
+            $attributes['correction_feedback'] = $reason;
+            $attributes['correction_requested_at'] = now();
+        }
+
+        $this->updateDocument($attributes);
+
+        DocumentAnalysisJob::dispatch($this->document);
+    }
+
+    protected function buildFallbackAnalysisText(string $reason): string
+    {
+        $filename = (string)($this->document->original_filename ?? 'unknown');
+        $docType = (string)($this->document->doc_type ?? 'unknown');
+        $mime = (string)($this->document->detected_mime ?? 'unknown');
+
+        return implode("\n", [
+            'OCR extraction was unsuccessful, but analysis should still proceed using available metadata.',
+            "Filename: {$filename}",
+            "Uploaded As: {$docType}",
+            "Detected MIME: {$mime}",
+            "Extraction Failure: {$reason}",
+            'Please classify document type, identify likely missing information, and provide conservative risk flags due to unavailable OCR text.',
+        ]);
     }
 }
