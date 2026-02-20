@@ -3,6 +3,7 @@
 namespace App\Console;
 
 use App\Console\Commands\CheckMissingDocumentsCommand;
+use App\Console\Commands\ResolveStalePendingDocumentsCommand;
 use App\Console\Commands\RetryFailedEmailsCommand;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
@@ -31,6 +32,17 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onSuccess(function () {
                 \Log::info('Failed email retry completed');
+            });
+
+        // Resolve stale pending documents every 30 minutes
+        $schedule->command(ResolveStalePendingDocumentsCommand::class, ['--hours' => 2])
+            ->everyThirtyMinutes()
+            ->withoutOverlapping()
+            ->onSuccess(function () {
+                \Log::info('Stale pending document resolution completed');
+            })
+            ->onFailure(function () {
+                \Log::error('Stale pending document resolution failed');
             });
     }
 

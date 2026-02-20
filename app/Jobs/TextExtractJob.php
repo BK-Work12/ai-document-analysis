@@ -88,9 +88,14 @@ class TextExtractJob implements ShouldQueue
                     return;
                 }
 
+                $feedback = $this->buildIncompatibleFormatReason($mimeType);
+
                 $this->updateDocument([
+                    'status' => 'needs_correction',
                     'extraction_status' => 'failed',
-                    'extraction_error' => $this->buildIncompatibleFormatReason($mimeType),
+                    'extraction_error' => $feedback,
+                    'correction_feedback' => $feedback,
+                    'correction_requested_at' => now(),
                     'extraction_completed_at' => now(),
                 ]);
 
@@ -150,9 +155,14 @@ class TextExtractJob implements ShouldQueue
                 $error = $result['error'] ?? 'Unknown error during text extraction';
 
                 if (str_contains(strtolower($error), 'unsupported document format')) {
+                    $feedback = $this->buildIncompatibleFormatReason($this->document->detected_mime);
+
                     $this->updateDocument([
+                        'status' => 'needs_correction',
                         'extraction_status' => 'failed',
-                        'extraction_error' => $this->buildIncompatibleFormatReason($this->document->detected_mime),
+                        'extraction_error' => $feedback,
+                        'correction_feedback' => $feedback,
+                        'correction_requested_at' => now(),
                         'extraction_completed_at' => now(),
                     ]);
 
@@ -195,9 +205,14 @@ class TextExtractJob implements ShouldQueue
      */
     public function failed(Exception $exception): void
     {
+        $feedback = 'We could not process this document automatically. Please re-upload a clearer or supported file and try again.';
+
         $this->updateDocument([
+            'status' => 'needs_correction',
             'extraction_status' => 'failed',
             'extraction_error' => $exception->getMessage(),
+            'correction_feedback' => $feedback,
+            'correction_requested_at' => now(),
             'extraction_completed_at' => now(),
         ]);
 

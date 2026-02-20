@@ -670,9 +670,14 @@ class DocumentAnalysisJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
+        $feedback = 'Automated analysis could not be completed for this document. Please review the file quality and re-upload if needed.';
+
         $this->updateDocument([
+            'status' => 'needs_correction',
             'analysis_status' => 'failed',
             'analysis_error' => $exception->getMessage(),
+            'correction_feedback' => $feedback,
+            'correction_requested_at' => now(),
             'analysis_completed_at' => now(),
         ]);
 
