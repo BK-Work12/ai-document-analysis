@@ -88,7 +88,7 @@ class TextExtractJob implements ShouldQueue
                     return;
                 }
 
-                $feedback = $this->buildIncompatibleFormatReason($mimeType);
+                $feedback = $this->buildIncompatibleFormatReason($mimeType, $useLocal ?? env('USE_LOCAL_STORAGE', true));
 
                 $this->updateDocument([
                     'status' => 'needs_correction',
@@ -155,7 +155,7 @@ class TextExtractJob implements ShouldQueue
                 $error = $result['error'] ?? 'Unknown error during text extraction';
 
                 if (str_contains(strtolower($error), 'unsupported document format')) {
-                    $feedback = $this->buildIncompatibleFormatReason($this->document->detected_mime);
+                    $feedback = $this->buildIncompatibleFormatReason($this->document->detected_mime, $useLocal ?? env('USE_LOCAL_STORAGE', true));
 
                     $this->updateDocument([
                         'status' => 'needs_correction',
@@ -265,11 +265,17 @@ class TextExtractJob implements ShouldQueue
     /**
      * Human-readable extraction failure reason for incompatible files.
      */
-    protected function buildIncompatibleFormatReason(?string $mimeType): string
+    protected function buildIncompatibleFormatReason(?string $mimeType, ?bool $isLocalMode = null): string
     {
         $detected = is_string($mimeType) && trim($mimeType) !== ''
             ? strtolower($mimeType)
             : 'unknown';
+
+        $isLocal = $isLocalMode ?? env('USE_LOCAL_STORAGE', true);
+
+        if ($isLocal && in_array($detected, ['application/pdf', 'image/tiff', 'image/tif'], true)) {
+            return "Textract could not process this {$detected} file in local-storage mode. Current OCR path uses byte-based processing, which is limited for this format. Enable S3 processing (set USE_LOCAL_STORAGE=false with AWS S3 configured) or re-upload as JPG/PNG.";
+        }
 
         return "Textract cannot process this file format ({$detected}). Supported OCR formats are PDF, JPG, PNG, and TIFF. Please re-upload in a supported format.";
     }
