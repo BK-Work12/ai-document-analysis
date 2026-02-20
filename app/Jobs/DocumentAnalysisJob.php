@@ -13,6 +13,8 @@ use Illuminate\Foundation\Queue\Queueable;
 use Exception;
 use Throwable;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Document Analysis Job
@@ -29,6 +31,11 @@ use Illuminate\Support\Str;
 class DocumentAnalysisJob implements ShouldQueue
 {
     use Queueable;
+
+    /**
+     * Cached list of columns for documents table.
+     */
+    protected static ?array $documentColumns = null;
 
     /**
      * The number of times the job may be attempted.
@@ -54,23 +61,39 @@ class DocumentAnalysisJob implements ShouldQueue
             // Refresh model to avoid stale queued model state
             $this->document->refresh();
 
-            // Verify extraction was completed before this job runs
-            if (!$this->hasExtractedText()) {
-                throw new Exception('Document must be extracted before analysis. TextExtractJob may have failed or not completed.');
+            if (in_array($this->document->extraction_status, ['pending', 'processing'], true)) {
+                $this->release(20);
+                return;
+            }
+
+            $hasExtractedText = $this->hasExtractedText();
+            $canAnalyzeDirect = $this->canAnalyzeDirectWithClaude();
+
+            if (!$hasExtractedText && !$canAnalyzeDirect) {
+                throw new Exception('Document must be extracted before analysis. Extraction failed and file is not Claude vision compatible.');
             }
 
             // Mark as processing
-            $this->document->update([
+            $this->updateDocument([
                 'analysis_status' => 'processing',
                 'analysis_started_at' => now(),
             ]);
 
-            // Analyze the extracted text
-            $result = $analysisService->analyzeDocument(
-                $this->document->extracted_text,
-                $this->document->original_filename,
-                $this->document->doc_type
-            );
+            // Analyze either extracted text or the original image directly via Claude vision
+            if ($hasExtractedText) {
+                $result = $analysisService->analyzeDocument(
+                    $this->document->extracted_text,
+                    $this->document->original_filename,
+                    $this->document->doc_type
+                );
+            } else {
+                $result = $analysisService->analyzeDocumentFromImage(
+                    $this->getDocumentBytesForClaude(),
+                    (string)$this->document->detected_mime,
+                    $this->document->original_filename,
+                    $this->document->doc_type
+                );
+            }
 
             if (!$result['success']) {
                 throw new Exception($result['error'] ?? 'Unknown error during analysis');
@@ -88,7 +111,7 @@ class DocumentAnalysisJob implements ShouldQueue
             $confidenceScore = $result['confidence_score'] ?? 0;
 
             // Store analysis results
-            $this->document->update([
+            $this->updateDocument([
                 'analysis_result' => json_encode($analysisResult),
                 'analysis_status' => 'completed',
                 'analysis_completed_at' => now(),
@@ -142,14 +165,14 @@ class DocumentAnalysisJob implements ShouldQueue
             if ($canAutoApprove) {
                 // Fully clean review - mark document as approved
                 $previousStatus = $this->document->status;
-                $this->document->update(['status' => 'approved']);
+                $this->updateDocument(['status' => 'approved']);
                 DocumentStatusUpdated::dispatch($this->document->refresh(), $previousStatus, 'approved');
             } elseif ($hasCorrectionIssues) {
                 $this->autoRequestCorrection($statusService, $classification, $riskFlags, $missingFields, $failedChecks);
             } else {
                 // Analysis was not clean enough for approval, but no explicit correction issues.
                 // Keep status pending for manual admin review.
-                $this->document->update(['status' => 'pending']);
+                $this->updateDocument(['status' => 'pending']);
             }
 
             \Illuminate\Support\Facades\Log::info('DocumentAnalysisJob completed', [
@@ -163,7 +186,7 @@ class DocumentAnalysisJob implements ShouldQueue
             ]);
 
         } catch (Exception $e) {
-            $this->document->update([
+            $this->updateDocument([
                 'analysis_status' => 'failed',
                 'analysis_error' => $e->getMessage(),
                 'analysis_completed_at' => now(),
@@ -182,6 +205,38 @@ class DocumentAnalysisJob implements ShouldQueue
     {
         return is_string($this->document->extracted_text)
             && trim($this->document->extracted_text) !== '';
+    }
+
+    protected function canAnalyzeDirectWithClaude(): bool
+    {
+        $mime = is_string($this->document->detected_mime)
+            ? strtolower($this->document->detected_mime)
+            : '';
+
+        return in_array($mime, [
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/webp',
+            'image/gif',
+        ], true);
+    }
+
+    protected function getDocumentBytesForClaude(): string
+    {
+        $s3Key = $this->document->s3_key;
+        if (!is_string($s3Key) || trim($s3Key) === '') {
+            throw new Exception('Cannot analyze directly: missing document storage key.');
+        }
+
+        $useLocal = env('USE_LOCAL_STORAGE', true);
+        $disk = $useLocal ? 'local' : 's3';
+
+        if (!Storage::disk($disk)->exists($s3Key)) {
+            throw new Exception('Cannot analyze directly: document file not found in storage.');
+        }
+
+        return Storage::disk($disk)->get($s3Key);
     }
 
     protected function isAnalysisInsufficient(
@@ -615,7 +670,7 @@ class DocumentAnalysisJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        $this->document->update([
+        $this->updateDocument([
             'analysis_status' => 'failed',
             'analysis_error' => $exception->getMessage(),
             'analysis_completed_at' => now(),
@@ -625,5 +680,30 @@ class DocumentAnalysisJob implements ShouldQueue
             'document_id' => $this->document->id,
             'error' => $exception->getMessage(),
         ]);
+    }
+
+    /**
+     * Update only columns that exist on documents table.
+     */
+    protected function updateDocument(array $attributes): void
+    {
+        $columns = $this->getDocumentColumns();
+        $filtered = array_intersect_key($attributes, array_flip($columns));
+
+        if ($filtered !== []) {
+            $this->document->update($filtered);
+        }
+    }
+
+    /**
+     * Get and cache documents table columns.
+     */
+    protected function getDocumentColumns(): array
+    {
+        if (self::$documentColumns === null) {
+            self::$documentColumns = Schema::getColumnListing('documents');
+        }
+
+        return self::$documentColumns;
     }
 }

@@ -7,6 +7,7 @@ use App\Services\AI\TextExtractService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 use Exception;
 
 /**
@@ -24,6 +25,11 @@ use Exception;
 class TextExtractJob implements ShouldQueue
 {
     use Queueable;
+
+    /**
+     * Cached list of columns for documents table.
+     */
+    protected static ?array $documentColumns = null;
 
     /**
      * The number of times the job may be attempted.
@@ -46,7 +52,7 @@ class TextExtractJob implements ShouldQueue
     {
         try {
             // Mark as processing
-            $this->document->update([
+            $this->updateDocument([
                 'extraction_status' => 'processing',
                 'extraction_started_at' => now(),
             ]);
@@ -63,9 +69,28 @@ class TextExtractJob implements ShouldQueue
             ];
 
             if ($mimeType && !in_array(strtolower($mimeType), $supported, true)) {
-                $this->document->update([
+                if ($this->isClaudeVisionCompatibleMime($mimeType)) {
+                    $reason = 'OCR skipped: this image type is compatible with Claude Vision and will be analyzed directly without Textract OCR.';
+
+                    $this->updateDocument([
+                        'extraction_status' => 'completed',
+                        'extraction_error' => $reason,
+                        'extraction_completed_at' => now(),
+                        'text_extraction_metadata' => [
+                            'skipped' => true,
+                            'reason' => $reason,
+                            'mime_type' => strtolower($mimeType),
+                            'mode' => 'direct_claude_vision',
+                        ],
+                    ]);
+
+                    DocumentAnalysisJob::dispatch($this->document);
+                    return;
+                }
+
+                $this->updateDocument([
                     'extraction_status' => 'failed',
-                    'extraction_error' => 'Unsupported document format for Textract. Please upload PDF/JPG/PNG/TIFF.',
+                    'extraction_error' => $this->buildIncompatibleFormatReason($mimeType),
                     'extraction_completed_at' => now(),
                 ]);
 
@@ -107,7 +132,7 @@ class TextExtractJob implements ShouldQueue
 
                     // For async, we'll handle completion via SNS notification
                     if ($result['success']) {
-                        $this->document->update([
+                        $this->updateDocument([
                             'extraction_status' => 'processing',
                             'text_extraction_metadata' => [
                                 'job_id' => $result['job_id'],
@@ -125,9 +150,9 @@ class TextExtractJob implements ShouldQueue
                 $error = $result['error'] ?? 'Unknown error during text extraction';
 
                 if (str_contains(strtolower($error), 'unsupported document format')) {
-                    $this->document->update([
+                    $this->updateDocument([
                         'extraction_status' => 'failed',
-                        'extraction_error' => 'Unsupported document format for Textract. Please upload PDF/JPG/PNG/TIFF.',
+                        'extraction_error' => $this->buildIncompatibleFormatReason($this->document->detected_mime),
                         'extraction_completed_at' => now(),
                     ]);
 
@@ -138,7 +163,7 @@ class TextExtractJob implements ShouldQueue
             }
 
             // Store extracted text and metadata
-            $this->document->update([
+            $this->updateDocument([
                 'extracted_text' => $result['extracted_text'],
                 'extraction_status' => 'completed',
                 'extraction_completed_at' => now(),
@@ -149,7 +174,7 @@ class TextExtractJob implements ShouldQueue
             DocumentAnalysisJob::dispatch($this->document);
 
         } catch (Exception $e) {
-            $this->document->update([
+            $this->updateDocument([
                 'extraction_status' => 'failed',
                 'extraction_error' => $e->getMessage(),
                 'extraction_completed_at' => now(),
@@ -170,7 +195,7 @@ class TextExtractJob implements ShouldQueue
      */
     public function failed(Exception $exception): void
     {
-        $this->document->update([
+        $this->updateDocument([
             'extraction_status' => 'failed',
             'extraction_error' => $exception->getMessage(),
             'extraction_completed_at' => now(),
@@ -180,5 +205,57 @@ class TextExtractJob implements ShouldQueue
             'document_id' => $this->document->id,
             'error' => $exception->getMessage(),
         ]);
+    }
+
+    /**
+     * Update only columns that exist on documents table.
+     */
+    protected function updateDocument(array $attributes): void
+    {
+        $columns = $this->getDocumentColumns();
+        $filtered = array_intersect_key($attributes, array_flip($columns));
+
+        if ($filtered !== []) {
+            $this->document->update($filtered);
+        }
+    }
+
+    /**
+     * Get and cache documents table columns.
+     */
+    protected function getDocumentColumns(): array
+    {
+        if (self::$documentColumns === null) {
+            self::$documentColumns = Schema::getColumnListing('documents');
+        }
+
+        return self::$documentColumns;
+    }
+
+    /**
+     * Textract-incompatible but Claude-vision-compatible image formats.
+     */
+    protected function isClaudeVisionCompatibleMime(?string $mimeType): bool
+    {
+        if (!is_string($mimeType) || trim($mimeType) === '') {
+            return false;
+        }
+
+        return in_array(strtolower($mimeType), [
+            'image/webp',
+            'image/gif',
+        ], true);
+    }
+
+    /**
+     * Human-readable extraction failure reason for incompatible files.
+     */
+    protected function buildIncompatibleFormatReason(?string $mimeType): string
+    {
+        $detected = is_string($mimeType) && trim($mimeType) !== ''
+            ? strtolower($mimeType)
+            : 'unknown';
+
+        return "Textract cannot process this file format ({$detected}). Supported OCR formats are PDF, JPG, PNG, and TIFF. Please re-upload in a supported format.";
     }
 }

@@ -88,6 +88,48 @@ class DocumentAnalysisService
     }
 
     /**
+     * Analyze document directly from image bytes using Claude vision.
+     */
+    public function analyzeDocumentFromImage(
+        string $imageBytes,
+        string $imageMime,
+        string $originalFilename,
+        string $docType
+    ): array {
+        try {
+            $prompt = $this->buildVisionAnalysisPrompt($originalFilename, $docType);
+            $response = $this->callBedrockWithImage($prompt, $imageBytes, $imageMime);
+
+            if (!$response['success']) {
+                return [
+                    'success' => false,
+                    'error' => $response['error'],
+                ];
+            }
+
+            $analysisResult = $this->parseAnalysisResponse($response['content']);
+
+            return [
+                'success' => true,
+                'analysis_result' => $analysisResult,
+                'metadata' => [
+                    'model' => $this->modelId,
+                    'analysis_mode' => 'direct_image',
+                    'input_tokens' => $response['input_tokens'] ?? 0,
+                    'output_tokens' => $response['output_tokens'] ?? 0,
+                    'stop_reason' => $response['stop_reason'] ?? 'end_turn',
+                ],
+                'confidence_score' => $analysisResult['confidence_score'] ?? 0,
+            ];
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Perform cross-document validation and generate case findings report
      * 
      * @param array $documentsAnalysis Array of document analyses
@@ -155,6 +197,28 @@ TEXT CONTENT:
 {$extractedText}
 
 Please analyze this document according to the system prompt above. Provide:
+1. Document Classification - which required document type this actually is
+2. Key Data Extracted - relevant financial, legal, or personal information
+3. Validation Checks - verification of data accuracy and completeness
+4. Risk Flags - any red flags, inconsistencies, or concerns
+5. Confidence Score - how confident (0-100) you are in this analysis
+
+Format your response as structured JSON.
+PROMPT;
+    }
+
+    protected function buildVisionAnalysisPrompt(string $filename, string $docType): string
+    {
+        $systemPrompt = $this->getSystemPrompt();
+
+        return <<<PROMPT
+{$systemPrompt}
+
+DOCUMENT TO ANALYZE:
+Filename: {$filename}
+Uploaded As: {$docType}
+
+Analyze the attached image directly. Read all visible text from the image and then provide:
 1. Document Classification - which required document type this actually is
 2. Key Data Extracted - relevant financial, legal, or personal information
 3. Validation Checks - verification of data accuracy and completeness
@@ -298,6 +362,78 @@ PROMPT;
                 'error' => $e->getMessage(),
             ];
         }
+    }
+
+    protected function callBedrockWithImage(string $prompt, string $imageBytes, string $imageMime): array
+    {
+        try {
+            $format = $this->mapMimeToBedrockImageFormat($imageMime);
+
+            if ($format === null) {
+                return [
+                    'success' => false,
+                    'error' => "Unsupported image MIME type for Claude vision: {$imageMime}",
+                ];
+            }
+
+            $systemPrompt = "You are an expert AI Financial Case Analyst. Provide structured, fact-based analysis without fabrication.";
+
+            $result = $this->bedrockClient->converse([
+                'modelId' => $this->modelId,
+                'messages' => [
+                    [
+                        'role' => 'user',
+                        'content' => [
+                            ['text' => $prompt],
+                            [
+                                'image' => [
+                                    'format' => $format,
+                                    'source' => [
+                                        'bytes' => $imageBytes,
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'system' => [
+                    ['text' => $systemPrompt],
+                ],
+                'inferenceConfig' => [
+                    'maxTokens' => $this->maxTokens,
+                ],
+            ]);
+
+            return [
+                'success' => true,
+                'content' => $result['output']['message']['content'][0]['text'] ?? '',
+                'input_tokens' => $result['usage']['inputTokens'] ?? 0,
+                'output_tokens' => $result['usage']['outputTokens'] ?? 0,
+                'stop_reason' => $result['stopReason'] ?? 'end_turn',
+            ];
+        } catch (AwsException $e) {
+            return [
+                'success' => false,
+                'error' => $e->getAwsErrorMessage() ?? $e->getMessage(),
+                'error_code' => $e->getAwsErrorCode() ?? 'BEDROCK_ERROR',
+            ];
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    protected function mapMimeToBedrockImageFormat(string $mime): ?string
+    {
+        return match (strtolower(trim($mime))) {
+            'image/jpeg', 'image/jpg' => 'jpeg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            default => null,
+        };
     }
 
     /**
