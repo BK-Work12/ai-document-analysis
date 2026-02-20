@@ -43,7 +43,24 @@ class ResolveStalePendingDocumentsCommand extends Command
             $isExtractionFailed = $document->extraction_status === 'failed';
             $isAnalysisFailed = $document->analysis_status === 'failed';
 
+            $isDocx = in_array(strtolower((string) $document->detected_mime), [
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ], true);
+
             if ($isExtractionFailed || $isAnalysisFailed) {
+                if ($isDocx && $isExtractionFailed) {
+                    $document->update([
+                        'extraction_status' => 'pending',
+                        'analysis_status' => 'pending',
+                        'extraction_error' => null,
+                        'analysis_error' => null,
+                    ]);
+
+                    TextExtractJob::dispatch($document);
+                    $queuedExtraction++;
+                    continue;
+                }
+
                 $feedback = $document->analysis_error
                     ?: $document->extraction_error
                     ?: 'This document could not be processed automatically. Please review and re-upload if required.';

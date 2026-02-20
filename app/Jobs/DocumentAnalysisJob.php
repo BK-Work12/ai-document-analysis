@@ -299,7 +299,7 @@ class DocumentAnalysisJob implements ShouldQueue
             if (is_array($flag)) {
                 $flagType = $flag['type'] ?? 'risk';
                 $description = $flag['description'] ?? $flag['message'] ?? '';
-                $severity = $flag['severity'] ?? 'medium';
+                $severity = $this->normalizeFlagSeverity($flag['severity'] ?? 'medium');
             } else {
                 $flagType = 'risk';
                 $description = (string)$flag;
@@ -313,6 +313,21 @@ class DocumentAnalysisJob implements ShouldQueue
                 'flagged_at' => now(),
             ]);
         }
+    }
+
+    protected function normalizeFlagSeverity(mixed $rawSeverity): string
+    {
+        $value = strtolower(trim((string) $rawSeverity));
+
+        if ($value === '') {
+            return 'medium';
+        }
+
+        return match ($value) {
+            'low', 'minor', 'info', 'informational' => 'low',
+            'high', 'critical', 'severe', 'urgent', 'blocker' => 'high',
+            default => 'medium',
+        };
     }
 
     /**

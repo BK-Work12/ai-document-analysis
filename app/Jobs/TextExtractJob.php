@@ -174,6 +174,21 @@ class TextExtractJob implements ShouldQueue
                     return;
                 }
 
+                if ($this->canFallbackToDirectAnalysis($this->document->detected_mime)) {
+                    $this->updateDocument([
+                        'extraction_status' => 'failed',
+                        'extraction_error' => $error,
+                        'extraction_completed_at' => now(),
+                        'text_extraction_metadata' => [
+                            'fallback_to_direct_analysis' => true,
+                            'reason' => $error,
+                        ],
+                    ]);
+
+                    DocumentAnalysisJob::dispatch($this->document);
+                    return;
+                }
+
                 throw new Exception($error);
             }
 
@@ -189,6 +204,21 @@ class TextExtractJob implements ShouldQueue
             DocumentAnalysisJob::dispatch($this->document);
 
         } catch (Exception $e) {
+            if ($this->canFallbackToDirectAnalysis($this->document->detected_mime)) {
+                $this->updateDocument([
+                    'extraction_status' => 'failed',
+                    'extraction_error' => $e->getMessage(),
+                    'extraction_completed_at' => now(),
+                    'text_extraction_metadata' => [
+                        'fallback_to_direct_analysis' => true,
+                        'reason' => $e->getMessage(),
+                    ],
+                ]);
+
+                DocumentAnalysisJob::dispatch($this->document);
+                return;
+            }
+
             $this->updateDocument([
                 'extraction_status' => 'failed',
                 'extraction_error' => $e->getMessage(),
@@ -225,6 +255,21 @@ class TextExtractJob implements ShouldQueue
             'document_id' => $this->document->id,
             'error' => $exception->getMessage(),
         ]);
+    }
+
+    protected function canFallbackToDirectAnalysis(?string $mimeType): bool
+    {
+        if (!is_string($mimeType) || trim($mimeType) === '') {
+            return false;
+        }
+
+        return in_array(strtolower($mimeType), [
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/webp',
+            'image/gif',
+        ], true);
     }
 
     /**
