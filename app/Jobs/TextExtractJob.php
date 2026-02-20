@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Document;
+use App\Services\AI\DocumentAnalysisService;
 use App\Services\AI\TextExtractService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -48,7 +49,7 @@ class TextExtractJob implements ShouldQueue
     /**
      * Execute the job
      */
-    public function handle(TextExtractService $textExtractService): void
+    public function handle(TextExtractService $textExtractService, DocumentAnalysisService $analysisService): void
     {
         try {
             // Mark as processing
@@ -98,6 +99,16 @@ class TextExtractJob implements ShouldQueue
                 }
 
                 $feedback = $this->buildIncompatibleFormatReason($mimeType, $useLocal ?? env('USE_LOCAL_STORAGE', true));
+
+                if ($this->canDirectExtractWithClaude($mimeType)) {
+                    $fallback = $this->tryDirectClaudeTextExtraction($analysisService, $s3Key, $mimeType, $useLocal);
+
+                    if ($fallback['success']) {
+                        return;
+                    }
+
+                    $feedback .= ' Claude fallback failed: ' . ($fallback['error'] ?? 'unknown error') . '.';
+                }
 
                 $this->updateDocument([
                     'status' => 'needs_correction',
@@ -161,6 +172,16 @@ class TextExtractJob implements ShouldQueue
 
                 if (str_contains(strtolower($error), 'unsupported document format')) {
                     $feedback = $this->buildIncompatibleFormatReason($this->document->detected_mime, $useLocal ?? env('USE_LOCAL_STORAGE', true));
+
+                    if ($this->canDirectExtractWithClaude($this->document->detected_mime)) {
+                        $fallback = $this->tryDirectClaudeTextExtraction($analysisService, $s3Key, $this->document->detected_mime, $useLocal);
+
+                        if ($fallback['success']) {
+                            return;
+                        }
+
+                        $feedback .= ' Claude fallback failed: ' . ($fallback['error'] ?? 'unknown error') . '.';
+                    }
 
                     $this->updateDocument([
                         'status' => 'needs_correction',
@@ -270,6 +291,69 @@ class TextExtractJob implements ShouldQueue
             'image/webp',
             'image/gif',
         ], true);
+    }
+
+    protected function canDirectExtractWithClaude(?string $mimeType): bool
+    {
+        if (!is_string($mimeType) || trim($mimeType) === '') {
+            return false;
+        }
+
+        return in_array(strtolower($mimeType), [
+            'application/pdf',
+        ], true);
+    }
+
+    protected function tryDirectClaudeTextExtraction(
+        DocumentAnalysisService $analysisService,
+        string $s3Key,
+        ?string $mimeType,
+        bool $useLocal
+    ): array {
+        try {
+            $disk = $useLocal ? 'local' : 's3';
+
+            if (!Storage::disk($disk)->exists($s3Key)) {
+                return ['success' => false, 'error' => 'Document file not found in storage for Claude fallback.'];
+            }
+
+            $bytes = Storage::disk($disk)->get($s3Key);
+
+            $result = $analysisService->extractTextFromDocument(
+                $bytes,
+                (string) $mimeType,
+                (string) ($this->document->original_filename ?? 'uploaded-document.pdf')
+            );
+
+            if (!$result['success']) {
+                return ['success' => false, 'error' => $result['error'] ?? 'Claude document extraction failed.'];
+            }
+
+            $text = trim((string) ($result['text'] ?? ''));
+            if ($text === '') {
+                return ['success' => false, 'error' => 'Claude document extraction returned empty text.'];
+            }
+
+            $this->updateDocument([
+                'extracted_text' => $text,
+                'extraction_status' => 'completed',
+                'extraction_error' => 'Textract skipped: extracted via Claude direct document OCR fallback.',
+                'extraction_completed_at' => now(),
+                'text_extraction_metadata' => [
+                    'skipped' => true,
+                    'reason' => 'Textract unsupported; extracted via Claude direct document input.',
+                    'mime_type' => strtolower((string) $mimeType),
+                    'mode' => 'direct_claude_document_ocr',
+                    'claude' => $result['metadata'] ?? [],
+                ],
+            ]);
+
+            DocumentAnalysisJob::dispatch($this->document);
+
+            return ['success' => true];
+        } catch (Exception $exception) {
+            return ['success' => false, 'error' => $exception->getMessage()];
+        }
     }
 
     /**

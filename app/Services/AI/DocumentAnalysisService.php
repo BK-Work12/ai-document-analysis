@@ -130,6 +130,47 @@ class DocumentAnalysisService
     }
 
     /**
+     * Extract raw text directly from document bytes via Claude document input.
+     */
+    public function extractTextFromDocument(string $documentBytes, string $documentMime, string $filename): array
+    {
+        try {
+            $prompt = <<<PROMPT
+Extract all readable text from the attached document.
+Return plain text only.
+Do not summarize.
+Do not add markdown.
+Keep line breaks where possible.
+PROMPT;
+
+            $response = $this->callBedrockWithDocument($prompt, $documentBytes, $documentMime, $filename);
+
+            if (!$response['success']) {
+                return [
+                    'success' => false,
+                    'error' => $response['error'],
+                ];
+            }
+
+            return [
+                'success' => true,
+                'text' => trim((string) ($response['content'] ?? '')),
+                'metadata' => [
+                    'model' => $this->modelId,
+                    'input_tokens' => $response['input_tokens'] ?? 0,
+                    'output_tokens' => $response['output_tokens'] ?? 0,
+                    'stop_reason' => $response['stop_reason'] ?? 'end_turn',
+                ],
+            ];
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Perform cross-document validation and generate case findings report
      * 
      * @param array $documentsAnalysis Array of document analyses
@@ -425,6 +466,70 @@ PROMPT;
         }
     }
 
+    protected function callBedrockWithDocument(string $prompt, string $documentBytes, string $documentMime, string $filename): array
+    {
+        try {
+            $format = $this->mapMimeToBedrockDocumentFormat($documentMime);
+
+            if ($format === null) {
+                return [
+                    'success' => false,
+                    'error' => "Unsupported document MIME type for Claude document input: {$documentMime}",
+                ];
+            }
+
+            $safeName = Str::limit(pathinfo($filename, PATHINFO_FILENAME) ?: 'uploaded_document', 60, '');
+
+            $systemPrompt = "You are an OCR assistant. Return only faithfully extracted text from the attached document.";
+
+            $result = $this->bedrockClient->converse([
+                'modelId' => $this->modelId,
+                'messages' => [
+                    [
+                        'role' => 'user',
+                        'content' => [
+                            ['text' => $prompt],
+                            [
+                                'document' => [
+                                    'format' => $format,
+                                    'name' => $safeName,
+                                    'source' => [
+                                        'bytes' => $documentBytes,
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'system' => [
+                    ['text' => $systemPrompt],
+                ],
+                'inferenceConfig' => [
+                    'maxTokens' => $this->maxTokens,
+                ],
+            ]);
+
+            return [
+                'success' => true,
+                'content' => $result['output']['message']['content'][0]['text'] ?? '',
+                'input_tokens' => $result['usage']['inputTokens'] ?? 0,
+                'output_tokens' => $result['usage']['outputTokens'] ?? 0,
+                'stop_reason' => $result['stopReason'] ?? 'end_turn',
+            ];
+        } catch (AwsException $e) {
+            return [
+                'success' => false,
+                'error' => $e->getAwsErrorMessage() ?? $e->getMessage(),
+                'error_code' => $e->getAwsErrorCode() ?? 'BEDROCK_ERROR',
+            ];
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
     protected function mapMimeToBedrockImageFormat(string $mime): ?string
     {
         return match (strtolower(trim($mime))) {
@@ -432,6 +537,14 @@ PROMPT;
             'image/png' => 'png',
             'image/gif' => 'gif',
             'image/webp' => 'webp',
+            default => null,
+        };
+    }
+
+    protected function mapMimeToBedrockDocumentFormat(string $mime): ?string
+    {
+        return match (strtolower(trim($mime))) {
+            'application/pdf' => 'pdf',
             default => null,
         };
     }
