@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Document;
 use Illuminate\Support\Facades\DB;
 
 class JobTrackingController extends Controller
@@ -31,6 +32,13 @@ class JobTrackingController extends Controller
             $job->decoded_payload = json_decode($job->payload, true);
         }
 
+        // Document processing history (acts as end-to-end job tracking)
+        $documentJobs = Document::query()
+            ->with('user:id,name,email')
+            ->orderByDesc('uploaded_at')
+            ->orderByDesc('id')
+            ->paginate(20, ['*'], 'document_jobs_page');
+
         // Get job statistics
         $stats = [
             'total_jobs' => DB::table('jobs')->count(),
@@ -38,11 +46,28 @@ class JobTrackingController extends Controller
             'processed_today' => DB::table('jobs')
                 ->where('created_at', '>=', now()->startOfDay())
                 ->count(),
+            'documents_processing' => Document::query()
+                ->where(function ($query) {
+                    $query->whereIn('extraction_status', ['pending', 'processing'])
+                        ->orWhereIn('analysis_status', ['pending', 'processing']);
+                })
+                ->count(),
+            'documents_completed' => Document::query()
+                ->where('extraction_status', 'completed')
+                ->where('analysis_status', 'completed')
+                ->count(),
+            'documents_failed' => Document::query()
+                ->where(function ($query) {
+                    $query->where('extraction_status', 'failed')
+                        ->orWhere('analysis_status', 'failed');
+                })
+                ->count(),
         ];
 
         return view('admin.jobs.tracking', [
             'jobs' => $jobs,
             'failedJobs' => $failedJobs,
+            'documentJobs' => $documentJobs,
             'stats' => $stats,
         ]);
     }
