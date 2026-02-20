@@ -68,6 +68,15 @@ class TextExtractJob implements ShouldQueue
                 'image/tif',
             ];
 
+            // Get storage disk and key
+            $s3Key = $this->document->s3_key;
+            $useLocal = env('USE_LOCAL_STORAGE', true);
+
+            if ($this->isWordDocumentMime($mimeType)) {
+                $this->processWordDocumentWithoutTextract($mimeType, $s3Key, $useLocal);
+                return;
+            }
+
             if ($mimeType && !in_array(strtolower($mimeType), $supported, true)) {
                 if ($this->isClaudeVisionCompatibleMime($mimeType)) {
                     $reason = 'OCR skipped: this image type is compatible with Claude Vision and will be analyzed directly without Textract OCR.';
@@ -101,10 +110,6 @@ class TextExtractJob implements ShouldQueue
 
                 return;
             }
-
-            // Get storage disk and key
-            $s3Key = $this->document->s3_key;
-            $useLocal = env('USE_LOCAL_STORAGE', true);
 
             if ($useLocal) {
                 // Local storage: use bytes-based Textract (<= 5MB)
@@ -278,5 +283,120 @@ class TextExtractJob implements ShouldQueue
         }
 
         return "Textract cannot process this file format ({$detected}). Supported OCR formats are PDF, JPG, PNG, and TIFF. Please re-upload in a supported format.";
+    }
+
+    protected function isWordDocumentMime(?string $mimeType): bool
+    {
+        if (!is_string($mimeType) || trim($mimeType) === '') {
+            return false;
+        }
+
+        return in_array(strtolower($mimeType), [
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/msword',
+        ], true);
+    }
+
+    protected function processWordDocumentWithoutTextract(?string $mimeType, string $s3Key, bool $useLocal): void
+    {
+        $normalizedMime = is_string($mimeType) ? strtolower($mimeType) : '';
+
+        if ($normalizedMime === 'application/msword') {
+            $feedback = 'Legacy .doc files are not supported for automatic AI extraction. Please upload as .docx or PDF.';
+
+            $this->updateDocument([
+                'status' => 'needs_correction',
+                'extraction_status' => 'failed',
+                'extraction_error' => $feedback,
+                'correction_feedback' => $feedback,
+                'correction_requested_at' => now(),
+                'extraction_completed_at' => now(),
+            ]);
+
+            return;
+        }
+
+        $disk = $useLocal ? 'local' : 's3';
+        $bytes = Storage::disk($disk)->get($s3Key);
+        $text = $this->extractTextFromDocxBytes($bytes);
+
+        if (trim($text) === '') {
+            $feedback = 'DOCX file was uploaded, but readable text could not be extracted. Please re-upload as searchable PDF or clear DOCX.';
+
+            $this->updateDocument([
+                'status' => 'needs_correction',
+                'extraction_status' => 'failed',
+                'extraction_error' => $feedback,
+                'correction_feedback' => $feedback,
+                'correction_requested_at' => now(),
+                'extraction_completed_at' => now(),
+            ]);
+
+            return;
+        }
+
+        $this->updateDocument([
+            'extraction_status' => 'completed',
+            'extraction_error' => 'Textract skipped: DOCX processed via direct text extraction for AI analysis.',
+            'extracted_text' => $text,
+            'extraction_completed_at' => now(),
+            'text_extraction_metadata' => [
+                'skipped' => true,
+                'reason' => 'DOCX file processed without Textract.',
+                'mime_type' => $normalizedMime,
+                'mode' => 'direct_docx_text',
+            ],
+        ]);
+
+        DocumentAnalysisJob::dispatch($this->document);
+    }
+
+    protected function extractTextFromDocxBytes(string $bytes): string
+    {
+        $tempFile = tempnam(sys_get_temp_dir(), 'docx_');
+
+        if ($tempFile === false) {
+            throw new Exception('Unable to create temporary file for DOCX extraction.');
+        }
+
+        try {
+            file_put_contents($tempFile, $bytes);
+
+            $zip = new \ZipArchive();
+            if ($zip->open($tempFile) !== true) {
+                throw new Exception('Unable to open DOCX archive.');
+            }
+
+            $xml = $zip->getFromName('word/document.xml');
+            $zip->close();
+
+            if (!is_string($xml) || trim($xml) === '') {
+                throw new Exception('DOCX does not contain readable document text.');
+            }
+
+            $document = simplexml_load_string($xml);
+            if ($document === false) {
+                throw new Exception('Unable to parse DOCX XML content.');
+            }
+
+            $document->registerXPathNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+            $nodes = $document->xpath('//w:t');
+
+            if (!is_array($nodes) || $nodes === []) {
+                return '';
+            }
+
+            $parts = [];
+            foreach ($nodes as $node) {
+                $value = trim((string) $node);
+                if ($value !== '') {
+                    $parts[] = $value;
+                }
+            }
+
+            return implode("\n", $parts);
+        } finally {
+            @unlink($tempFile);
+        }
     }
 }
