@@ -25,6 +25,10 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'role',
         'receives_notifications',
+        'profile_update_required',
+        'profile_update_note',
+        'profile_update_requested_at',
+        'profile_update_requested_by',
         'email_unsubscribe_token',
     ];
 
@@ -49,6 +53,8 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'receives_notifications' => 'boolean',
+            'profile_update_required' => 'boolean',
+            'profile_update_requested_at' => 'datetime',
         ];
     }
 

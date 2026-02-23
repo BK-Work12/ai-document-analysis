@@ -50,6 +50,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
     Route::get('/admin/clients/{user}', [AdminDashboardController::class, 'showClient'])->name('admin.clients.show');
+    Route::patch('/admin/clients/{user}/profile-update-required', [AdminDashboardController::class, 'flagProfileUpdateRequired'])->name('admin.clients.profile-update-required');
     Route::get('/admin/clients/{user}/email-logs', [AdminDashboardController::class, 'emailLogs'])->name('admin.clients.email-logs');    Route::get('/admin/chats', [AdminChatController::class, 'list'])->name('admin.chats.list');    Route::get('/admin/clients/{user}/chats', [AdminChatController::class, 'index'])->name('admin.chats.index');
     Route::get('/admin/clients/{user}/chats/{document}', [AdminChatController::class, 'show'])->name('admin.chats.show');
     Route::patch('/admin/documents/{document}/status/{status}', [AdminDashboardController::class, 'markDocumentStatus'])->name('admin.documents.status');

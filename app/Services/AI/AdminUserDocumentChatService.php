@@ -5,6 +5,7 @@ namespace App\Services\AI;
 use App\Models\AdminUserChatMessage;
 use App\Models\AdminUserConversation;
 use App\Models\User;
+use App\Services\ApplicationAuditLogger;
 use Aws\BedrockRuntime\BedrockRuntimeClient;
 use Aws\Exception\AwsException;
 use Exception;
@@ -65,6 +66,18 @@ class AdminUserDocumentChatService
                 'role' => 'user',
                 'sent_at' => now(),
             ]);
+
+            app(ApplicationAuditLogger::class)->log(
+                actionType: 'ai.query.user_document_chat',
+                userId: $adminUserId,
+                entityType: 'admin_user_conversation',
+                entityId: $conversation->id,
+                description: 'Admin queried AI for user-wide document chat.',
+                metadata: [
+                    'client_user_id' => $conversation->client_user_id,
+                    'message_length' => mb_strlen($userMessage),
+                ]
+            );
 
             $messages = $this->buildMessageHistory($conversation);
             $systemPrompt = $this->buildSystemPrompt($conversation->context ?? 'No context available.');

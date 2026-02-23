@@ -4,6 +4,7 @@ namespace App\Services\AI;
 
 use App\Models\DocumentConversation;
 use App\Models\DocumentChatMessage;
+use App\Services\ApplicationAuditLogger;
 use Aws\BedrockRuntime\BedrockRuntimeClient;
 use Aws\Exception\AwsException;
 use Exception;
@@ -59,6 +60,18 @@ class DocumentChatService
                 'role' => 'user',
                 'sent_at' => now(),
             ]);
+
+            app(ApplicationAuditLogger::class)->log(
+                actionType: 'ai.query.document_chat',
+                userId: $userId,
+                entityType: 'document_conversation',
+                entityId: $conversation->id,
+                description: 'Admin queried AI for a document conversation.',
+                metadata: [
+                    'document_id' => $conversation->document_id,
+                    'message_length' => mb_strlen($userMessage),
+                ]
+            );
 
             // Build conversation history
             $messages = $this->buildMessageHistory($conversation);

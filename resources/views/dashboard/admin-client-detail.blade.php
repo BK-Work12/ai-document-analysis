@@ -2,6 +2,18 @@
     <x-slot name="header">{{ $user->name }} - Client Details</x-slot>
 
     <div class="p-8 max-w-7xl mx-auto">
+        @if(session('success'))
+            <div class="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-800">
+                {{ session('success') }}
+            </div>
+        @endif
+
+        @if(session('error'))
+            <div class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
+                {{ session('error') }}
+            </div>
+        @endif
+
         <!-- Header Section -->
         <div class="mb-8 grid grid-cols-3 gap-6">
             <!-- Client Info Card -->
@@ -46,6 +58,22 @@
                 </div>
 
                 <div class="mt-6 pt-6 border-t">
+                    <div class="mb-4">
+                        @if($user->profile_update_required)
+                            <div class="rounded-lg border border-orange-200 bg-orange-50 p-3">
+                                <p class="text-sm font-semibold text-orange-900">Profile Update Required</p>
+                                <p class="text-xs text-orange-800 mt-1">Requested: {{ $user->profile_update_requested_at?->format('M d, Y H:i') ?? 'N/A' }}</p>
+                                @if($user->profile_update_note)
+                                    <p class="text-sm text-orange-900 mt-2"><strong>Note:</strong> {{ $user->profile_update_note }}</p>
+                                @endif
+                            </div>
+                        @endif
+
+                        <button type="button" onclick="openProfileUpdateModal()" class="mt-3 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition">
+                            Flag Profile Update Required
+                        </button>
+                    </div>
+
                     <a href="{{ route('admin.clients.email-logs', $user) }}" class="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium">
                         View Email Logs →
                     </a>
@@ -170,6 +198,25 @@
         </div>
     </div>
 
+    <div id="profileUpdateModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 class="text-lg font-semibold mb-4 text-gray-900">Profile Update Required</h3>
+            <form method="POST" action="{{ route('admin.clients.profile-update-required', $user) }}">
+                @csrf
+                @method('PATCH')
+                <textarea name="note" class="w-full border border-gray-300 rounded-lg p-3 mb-4 focus:ring-2 focus:ring-indigo-500" placeholder="Enter note for profile update request..." rows="4" required></textarea>
+                <div class="flex gap-2">
+                    <button type="submit" class="flex-1 bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 font-medium">
+                        Send Request
+                    </button>
+                    <button type="button" onclick="closeProfileUpdateModal()" class="flex-1 bg-gray-200 text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-300 font-medium">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Correction Modal -->
     <div id="correctionModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
@@ -191,6 +238,14 @@
     </div>
 
     <script>
+        function openProfileUpdateModal() {
+            document.getElementById('profileUpdateModal').classList.remove('hidden');
+        }
+
+        function closeProfileUpdateModal() {
+            document.getElementById('profileUpdateModal').classList.add('hidden');
+        }
+
         function openCorrectionModal(docId) {
             const form = document.getElementById('correctionForm');
             form.action = `/admin/documents/${docId}/status/needs_correction`;

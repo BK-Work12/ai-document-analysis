@@ -5,6 +5,7 @@ namespace App\Console;
 use App\Console\Commands\CheckMissingDocumentsCommand;
 use App\Console\Commands\ResolveStalePendingDocumentsCommand;
 use App\Console\Commands\RetryFailedEmailsCommand;
+use App\Console\Commands\SendProfileUpdateRemindersCommand;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -24,6 +25,17 @@ class Kernel extends ConsoleKernel
             })
             ->onFailure(function () {
                 \Log::error('Missing documents check failed');
+            });
+
+        // Send profile update reminders daily at 10 AM
+        $schedule->command(SendProfileUpdateRemindersCommand::class)
+            ->dailyAt('10:00')
+            ->withoutOverlapping()
+            ->onSuccess(function () {
+                \Log::info('Profile update reminders check completed successfully');
+            })
+            ->onFailure(function () {
+                \Log::error('Profile update reminders check failed');
             });
 
         // Retry failed emails every 2 hours

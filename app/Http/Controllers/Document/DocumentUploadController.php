@@ -8,6 +8,7 @@ use App\Models\Document;
 use App\Models\User;
 use App\Notifications\DocumentUploadedNotification;
 use App\Events\DocumentUploaded;
+use App\Services\ApplicationAuditLogger;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -53,6 +54,20 @@ class DocumentUploadController extends Controller
                 'detected_mime' => $file->getMimeType(),
                 'size_bytes' => $file->getSize(),
                 'uploaded_at' => now(),
+            ]
+        );
+
+        app(ApplicationAuditLogger::class)->log(
+            actionType: 'document.upload',
+            userId: $user->id,
+            entityType: 'document',
+            entityId: $document->id,
+            description: 'Client uploaded a document.',
+            metadata: [
+                'doc_type' => $docType,
+                'version' => $version,
+                'filename' => $originalName,
+                'size_bytes' => $file->getSize(),
             ]
         );
 

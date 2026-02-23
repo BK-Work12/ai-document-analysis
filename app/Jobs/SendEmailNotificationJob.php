@@ -67,6 +67,7 @@ class SendEmailNotificationJob implements ShouldQueue
         return match ($type) {
             'correction_needed' => 'Document Correction Needed',
             'missing_documents_reminder' => 'Missing Documents Reminder',
+            'profile_update_required' => 'Profile Update Required',
             'error' => 'Email Notification Error',
             default => ucwords(str_replace('_', ' ', $type)),
         };
