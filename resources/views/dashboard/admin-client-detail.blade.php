@@ -238,6 +238,29 @@
     </div>
 
     <script>
+        let dashboardSignature = '{{ $dashboardSignature ?? '0' }}';
+
+        setInterval(async () => {
+            if (document.hidden) return;
+
+            try {
+                const res = await fetch('{{ route('admin.clients.heartbeat', $user) }}', {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+
+                if (!res.ok) return;
+
+                const data = await res.json();
+                if (String(data.signature ?? '0') !== String(dashboardSignature)) {
+                    window.location.reload();
+                }
+            } catch (error) {
+            }
+        }, 8000);
+
         function openProfileUpdateModal() {
             document.getElementById('profileUpdateModal').classList.remove('hidden');
         }

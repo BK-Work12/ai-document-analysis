@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Mail\ProfileUpdateMail;
 use App\Models\Document;
+use App\Models\DocumentMessage;
 use App\Models\User;
 use App\Models\EmailLog;
 use App\Events\DocumentStatusUpdated;
@@ -12,6 +13,7 @@ use App\Services\DocumentStatusService;
 use App\Services\ApplicationAuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Carbon;
 
 class AdminDashboardController extends Controller
 {
@@ -53,12 +55,25 @@ class AdminDashboardController extends Controller
             ->get();
 
         $isComplete = $this->statusService->userHasCompletedAllRequirements($user);
+        $dashboardSignature = $this->buildClientDashboardSignature($user->id);
 
         return view('dashboard.admin-client-detail', [
             'user' => $user,
             'documents' => $documents,
             'emailLogs' => $emailLogs,
             'isComplete' => $isComplete,
+            'dashboardSignature' => $dashboardSignature,
+        ]);
+    }
+
+    public function clientHeartbeat(User $user)
+    {
+        if ($user->role !== 'client') {
+            abort(404);
+        }
+
+        return response()->json([
+            'signature' => $this->buildClientDashboardSignature($user->id),
         ]);
     }
 
@@ -165,5 +180,24 @@ class AdminDashboardController extends Controller
         }
 
         return back()->with('success', 'Profile update request sent successfully.');
+    }
+
+    private function buildClientDashboardSignature(int $userId): string
+    {
+        $docUpdatedAt = Document::where('user_id', $userId)->max('updated_at');
+        $messageUpdatedAt = DocumentMessage::whereHas('document', function ($query) use ($userId) {
+            $query->where('user_id', $userId);
+        })->max('updated_at');
+        $emailUpdatedAt = EmailLog::where('user_id', $userId)->max('updated_at');
+        $userUpdatedAt = User::where('id', $userId)->value('updated_at');
+
+        $timestamps = [
+            $docUpdatedAt ? Carbon::parse($docUpdatedAt)->timestamp : 0,
+            $messageUpdatedAt ? Carbon::parse($messageUpdatedAt)->timestamp : 0,
+            $emailUpdatedAt ? Carbon::parse($emailUpdatedAt)->timestamp : 0,
+            $userUpdatedAt ? Carbon::parse($userUpdatedAt)->timestamp : 0,
+        ];
+
+        return (string) max($timestamps);
     }
 }

@@ -1,7 +1,7 @@
 <x-app-layout>
-    <x-slot name="header">Document Submission</x-slot>
+    <x-slot name="header">Your Document Checklist</x-slot>
 
-    <div class="min-h-screen bg-gray-50">
+    <div class="min-h-screen bg-slate-50">
         <!-- Progress Bar and Missing Files Alert -->
         <div class="w-full bg-white pt-6 px-0 sm:px-6">
             @php
@@ -15,20 +15,20 @@
             <div class="mb-6 px-0 sm:px-4 md:px-8">
                 <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
-                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"/></svg>
-                        <span class="text-base font-semibold text-blue-900">Upload Progress</span>
+                        <svg class="w-5 h-5 text-teal-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"/></svg>
+                        <span class="text-base font-semibold text-teal-900">Upload Progress</span>
                     </div>
-                    <span class="text-sm font-semibold text-blue-700">{{ $uploadedCount }} <span class="text-gray-400">/</span> {{ $totalRequired }}</span>
+                    <span class="text-sm font-semibold text-teal-700">{{ $uploadedCount }} <span class="text-gray-400">/</span> {{ $totalRequired }}</span>
                 </div>
                 <div class="relative w-full h-4 bg-gray-200 rounded-full overflow-hidden shadow-sm mb-2">
-                    <div class="absolute left-0 top-0 h-4 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500" style="width: {{ $progressPercent }}%"></div>
-                    <div class="absolute inset-0 flex items-center justify-center text-xs font-semibold text-blue-900">{{ $progressPercent }}%</div>
+                    <div class="absolute left-0 top-0 h-4 bg-gradient-to-r from-teal-600 to-emerald-500 rounded-full transition-all duration-500" style="width: {{ $progressPercent }}%"></div>
+                    <div class="absolute inset-0 flex items-center justify-center text-xs font-semibold text-teal-900">{{ $progressPercent }}%</div>
                 </div>
                 @if ($missingTypes->count() > 0)
-                    <div class="mb-2 p-4 rounded-xl border-l-4 border-red-500 bg-red-50 flex items-start gap-3 shadow-sm animate-pulse-slow w-full">
+                    <div class="mb-2 p-4 rounded-xl border-l-4 border-red-500 bg-red-50 flex items-start gap-3 shadow-sm w-full">
                         <svg class="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/></svg>
                         <div>
-                            <div class="font-bold text-red-700 mb-1">Missing files</div>
+                            <div class="font-bold text-red-700 mb-1">Still needed</div>
                             <ul class="list-disc ml-6 text-red-700 text-sm">
                                 @foreach ($requirements as $req)
                                     @if ($missingTypes->contains($req->doc_type))
@@ -36,7 +36,7 @@
                                     @endif
                                 @endforeach
                             </ul>
-                            <div class="text-xs text-red-600 mt-2 font-medium">Please upload the above files to complete your submission.</div>
+                            <div class="text-xs text-red-600 mt-2 font-medium">Upload these documents to complete your checklist.</div>
                         </div>
                     </div>
                 @endif
@@ -48,14 +48,14 @@
                 <div class="lg:col-span-1">
                     <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-y-auto p-6 sticky top-6">
                         <div class="flex items-center gap-3 mb-6">
-                            <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <div class="w-10 h-10 bg-gradient-to-br from-teal-700 to-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
                                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
                                     </path>
                                 </svg>
                             </div>
-                            <h3 class="text-lg font-bold text-gray-900">Upload Document</h3>
+                            <h3 class="text-lg font-bold text-gray-900">Upload a Document</h3>
                         </div>
 
                         <div id="uploadMessage" class="hidden mb-4 p-3 rounded-lg text-sm"></div>
@@ -64,15 +64,15 @@
                             @csrf
 
                             <div>
-                                <label for="doc_type" class="block text-xs font-semibold text-gray-700 uppercase mb-2">Document Type *</label>
+                                <label for="doc_type" class="block text-xs font-semibold text-teal-800 uppercase mb-2">Document type *</label>
                                 <select name="doc_type" id="doc_type" required
-                                    class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-                                    <option value="">-- Select Type --</option>
+                                    class="w-full px-3 py-2.5 border border-teal-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-600 focus:border-teal-600 transition">
+                                    <option value="">Choose a document type</option>
                                     @foreach ($requirements as $req)
                                         <option value="{{ $req->doc_type }}">
                                             {{ ucfirst(str_replace('_', ' ', $req->doc_type)) }}
                                             @if ($req->required)
-                                                (Req)
+                                                (Required)
                                             @endif
                                         </option>
                                     @endforeach
@@ -80,32 +80,32 @@
                             </div>
 
                             <div>
-                                <label for="file" class="block text-xs font-semibold text-gray-700 uppercase mb-2">File *</label>
-                                <div id="dropZone" class="flex justify-center px-4 py-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-blue-400 transition cursor-pointer hover:bg-blue-50">
+                                <label for="file" class="block text-xs font-semibold text-teal-800 uppercase mb-2">File *</label>
+                                <div id="dropZone" class="flex justify-center px-4 py-6 border-2 border-teal-200 border-dashed rounded-lg hover:border-teal-400 transition cursor-pointer hover:bg-emerald-50">
                                     <div class="space-y-1 text-center w-full">
                                         <svg class="mx-auto h-8 w-8 text-gray-400" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M12 4v16m8-8H4"></path>
                                         </svg>
-                                        <span class="text-sm font-medium text-blue-600 hover:text-blue-500 block cursor-pointer">Click to upload</span>
+                                        <span class="text-sm font-medium text-teal-700 hover:text-teal-600 block cursor-pointer">Click to choose a file</span>
                                         <input id="file" name="file" type="file" required
                                             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" class="sr-only">
-                                        <p class="text-xs text-gray-500">or drag and drop</p>
-                                        <p class="text-xs text-gray-400">PDF, DOC, JPG (max 20MB)</p>
+                                        <p class="text-xs text-gray-500">or drag and drop here</p>
+                                        <p class="text-xs text-gray-400">PDF, DOC, DOCX, JPG, PNG (max 20MB)</p>
                                     </div>
                                 </div>
                                 <p id="fileName" class="text-xs text-gray-600 mt-2"></p>
                             </div>
 
                             <button type="submit" id="uploadBtn"
-                                class="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold text-sm hover:shadow-lg transition-all duration-200 flex items-center justify-center">
+                                class="w-full px-4 py-2.5 bg-gradient-to-r from-teal-700 to-emerald-600 text-white rounded-lg font-semibold text-sm hover:shadow-lg transition-all duration-200 flex items-center justify-center">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
                                     </path>
                                 </svg>
-                                Upload Document
+                                Upload now
                             </button>
                         </form>
                     </div>
@@ -113,29 +113,28 @@
 
                 <!-- Right Main Area - Documents Table -->
                 <div class="lg:col-span-3">
-                <div class="lg:col-span-3">
                     <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden flex flex-col">
                         <div class="p-6 border-b border-gray-200">
                             <div class="flex items-center gap-3 mb-6">
-                                <div class="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <div class="w-10 h-10 bg-gradient-to-br from-teal-700 to-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
                                     <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
                                         </path>
                                     </svg>
                                 </div>
-                                <h3 class="text-lg font-bold text-gray-900">Your Documents</h3>
+                                <h3 class="text-lg font-bold text-gray-900">Uploaded Documents</h3>
                             </div>
 
                             <!-- Table Controls -->
                             <div class="flex flex-col sm:flex-row gap-3">
-                                <input type="text" id="tableSearch" placeholder="Search documents..."
-                                    class="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                <select id="statusFilter" class="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[160px]">
+                                <input type="text" id="tableSearch" placeholder="Search by document name..."
+                                    class="flex-1 px-4 py-2.5 border border-teal-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-600 focus:border-teal-600">
+                                <select id="statusFilter" class="px-4 py-2.5 border border-teal-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-600 focus:border-teal-600 min-w-[160px]">
                                     <option value="">All Status</option>
                                     <option value="approved">Approved</option>
-                                    <option value="pending">Pending</option>
-                                    <option value="needs_correction">Needs Correction</option>
+                                    <option value="pending">Under Review</option>
+                                    <option value="needs_correction">Action Needed</option>
                                 </select>
                             </div>
                         </div>
@@ -146,8 +145,8 @@
                                     <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                     </svg>
-                                    <p class="text-gray-600 text-base mt-4 font-medium">No documents uploaded yet</p>
-                                    <p class="text-gray-400 text-sm mt-2">Upload your first document using the form on the left</p>
+                                    <p class="text-gray-600 text-base mt-4 font-medium">No documents yet</p>
+                                    <p class="text-gray-400 text-sm mt-2">Use the upload form to add your first document.</p>
                                 </div>
                             </div>
                         @else
@@ -155,7 +154,7 @@
                                 <table id="documentsTable" class="w-full text-sm">
                                     <thead class="sticky top-0 bg-gray-50 border-b border-gray-200">
                                         <tr>
-                                            <th class="text-left px-6 py-4 font-semibold text-gray-700 w-12">S.No</th>
+                                            <th class="text-left px-6 py-4 font-semibold text-gray-700 w-12">No.</th>
                                             <th class="text-left px-6 py-4 font-semibold text-gray-700 cursor-pointer hover:bg-gray-100" onclick="sortTable(1)">
                                                 Document Type <span class="text-xs text-gray-400">↕</span>
                                             </th>
@@ -165,7 +164,7 @@
                                             <th class="text-left px-6 py-4 font-semibold text-gray-700 cursor-pointer hover:bg-gray-100" onclick="sortTable(3)">
                                                 Uploaded <span class="text-xs text-gray-400">↕</span>
                                             </th>
-                                            <th class="text-left px-6 py-4 font-semibold text-gray-700 w-12">Ver</th>
+                                            <th class="text-left px-6 py-4 font-semibold text-gray-700 w-16">Version</th>
                                             <th class="text-left px-6 py-4 font-semibold text-gray-700 w-32">Actions</th>
                                         </tr>
                                     </thead>
@@ -183,7 +182,13 @@
                                                         @elseif($doc->status === 'pending') bg-yellow-100 text-yellow-800
                                                         @else bg-gray-100 text-gray-800 @endif
                                                     ">
-                                                        {{ ucfirst(str_replace('_', ' ', $doc->status)) }}
+                                                        @if ($doc->status === 'needs_correction')
+                                                            Action Needed
+                                                        @elseif($doc->status === 'pending')
+                                                            Under Review
+                                                        @else
+                                                            {{ ucfirst(str_replace('_', ' ', $doc->status)) }}
+                                                        @endif
                                                     </span>
                                                 </td>
                                                 <td class="px-6 py-4 text-gray-600">{{ $doc->uploaded_at?->format('M d, Y') ?? 'N/A' }}</td>
@@ -191,10 +196,10 @@
                                                 <td class="px-6 py-4">
                                                     <div class="flex gap-3">
                                                         <button onclick="downloadDocument({{ $doc->id }})"
-                                                            class="text-blue-600 hover:text-blue-800 text-xs font-medium hover:underline">Download</button>
+                                                            class="text-teal-700 hover:text-teal-900 text-xs font-medium hover:underline">Download</button>
                                                         <button
                                                             onclick="openChatModal({{ $doc->id }}, '{{ ucfirst(str_replace('_', ' ', $doc->doc_type)) }}')"
-                                                            class="text-indigo-600 hover:text-indigo-800 text-xs font-medium hover:underline">Chat</button>
+                                                            class="text-emerald-700 hover:text-emerald-900 text-xs font-medium hover:underline">Ask a question</button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -210,14 +215,14 @@
                                                             </svg>
                                                             <div class="text-xs">
                                                                 @if ($doc->correction_feedback)
-                                                                    <p class="font-semibold text-red-800">AI Feedback:</p>
+                                                                    <p class="font-semibold text-red-800">What needs to be fixed:</p>
                                                                     <p class="text-red-700 mt-1">{{ $doc->correction_feedback }}</p>
                                                                     @if (!is_null($doc->confidence_score))
-                                                                        <p class="text-red-600 mt-1">Confidence: {{ $doc->confidence_score }}%</p>
+                                                                        <p class="text-red-600 mt-1">AI match score: {{ $doc->confidence_score }}%</p>
                                                                     @endif
                                                                 @endif
                                                                 @if ($doc->notes)
-                                                                    <p class="font-semibold text-red-800 mt-2">Manual Feedback:</p>
+                                                                    <p class="font-semibold text-red-800 mt-2">Reviewer notes:</p>
                                                                     <p class="text-red-700 mt-1">{{ $doc->notes }}</p>
                                                                 @endif
                                                             </div>
@@ -227,7 +232,7 @@
                                             @endif
                                         @empty
                                             <tr>
-                                                <td colspan="6" class="px-6 py-4 text-center text-gray-600 text-sm">No documents found</td>
+                                                <td colspan="6" class="px-6 py-4 text-center text-gray-600 text-sm">No matching documents found</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -238,10 +243,10 @@
                             <div class="p-6 border-t border-gray-200 bg-gray-50">
                                 <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
                                     <div class="text-sm text-gray-600">
-                                        Showing <span id="startRecord">1</span>-<span id="endRecord">20</span> of <span id="totalRecords">{{ count($documents) }}</span> documents
+                                        Showing <span id="startRecord">1</span>-<span id="endRecord">20</span> of <span id="totalRecords">{{ count($documents) }}</span> document(s)
                                     </div>
                                     <div class="flex gap-2">
-                                        <button onclick="prevPage()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 transition">← Prev</button>
+                                        <button onclick="prevPage()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 transition">← Previous</button>
                                         <span id="pageInfo" class="px-3 py-2 text-sm text-gray-600">Page <span id="currentPage" class="font-semibold">1</span></span>
                                         <button onclick="nextPage()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 transition">Next →</button>
                                     </div>
@@ -332,7 +337,7 @@
                 const aNum = parseInt(a.getAttribute('data-date')) || 0;
                 const bNum = parseInt(b.getAttribute('data-date')) || 0;
                 
-                if (columnIndex === 2 && (aNum || bNum)) {
+                if (columnIndex === 3 && (aNum || bNum)) {
                     return isAscending ? aNum - bNum : bNum - aNum;
                 }
 
@@ -374,19 +379,19 @@
         dropZone?.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            dropZone.classList.add('border-blue-500', 'bg-blue-50');
+            dropZone.classList.add('border-teal-500', 'bg-emerald-50');
         });
 
         dropZone?.addEventListener('dragleave', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+            dropZone.classList.remove('border-teal-500', 'bg-emerald-50');
         });
 
         dropZone?.addEventListener('drop', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+            dropZone.classList.remove('border-teal-500', 'bg-emerald-50');
             
             const files = e.dataTransfer.files;
             if (files.length > 0) {
@@ -425,11 +430,11 @@
                 if (response.ok) {
                     messageDiv.className =
                         'p-3 rounded-lg bg-green-100 border border-green-300 text-green-800 text-sm';
-                    messageDiv.textContent = '✓ Uploaded!';
+                    messageDiv.textContent = '✓ Upload complete. Updating your list...';
                     messageDiv.classList.remove('hidden');
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    throw new Error(data.message || 'Upload failed');
+                    throw new Error(data.message || 'Upload failed. Please try again.');
                 }
             } catch (err) {
                 messageDiv.className = 'p-3 rounded-lg bg-red-100 border border-red-300 text-red-800 text-sm';
@@ -502,7 +507,7 @@
                 chatMessageInput
             } = getChatRefs();
             activeDocumentId = docId;
-            chatTitle.textContent = `Chat - ${docLabel}`;
+            chatTitle.textContent = `Questions about: ${docLabel}`;
             chatMessageInput.value = '';
             await loadMessages();
             chatModal.classList.remove('hidden');
@@ -530,7 +535,7 @@
                 chatList
             } = getChatRefs();
             if (!activeDocumentId) return;
-            chatList.innerHTML = '<p class="text-sm text-gray-500">Loading...</p>';
+            chatList.innerHTML = '<p class="text-sm text-gray-500">Loading messages...</p>';
             try {
                 const res = await fetch(`/documents/${activeDocumentId}/messages`);
                 if (!res.ok) throw new Error('Unable to load messages');
@@ -542,7 +547,7 @@
                     const isSelf = msg.user_id === {{ auth()->id() }};
                     bubble.className = `mb-2 flex ${isSelf ? 'justify-end' : 'justify-start'}`;
                     bubble.innerHTML = `
-                        <div class="max-w-xs px-3 py-2 rounded-lg text-sm ${isSelf ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-800'}">
+                        <div class="max-w-xs px-3 py-2 rounded-lg text-sm ${isSelf ? 'bg-teal-700 text-white' : 'bg-gray-100 text-gray-800'}">
                             <p class="font-semibold text-xs mb-1">${msg.user?.name ?? 'User'}</p>
                             <p>${msg.message}</p>
                             <p class="text-[10px] mt-1 opacity-75">${new Date(msg.created_at).toLocaleTimeString()}</p>
@@ -552,7 +557,7 @@
                 });
                 chatList.scrollTop = chatList.scrollHeight;
             } catch (err) {
-                chatList.innerHTML = `<p class="text-sm text-red-600">Unable to load messages</p>`;
+                chatList.innerHTML = `<p class="text-sm text-red-600">Unable to load messages right now.</p>`;
             }
         }
 
@@ -586,7 +591,7 @@
                     chatMessageInput.value = '';
                     await loadMessages();
                 } catch (err) {
-                    alert('Unable to send message');
+                    alert('Unable to send message right now. Please try again.');
                 } finally {
                     chatForm.querySelector('button').disabled = false;
                 }
@@ -599,24 +604,47 @@
 
         window.openChatModal = openChatModal;
         window.closeChatModal = closeChatModal;
+
+        let dashboardSignature = '{{ $dashboardSignature ?? '0' }}';
+
+        setInterval(async () => {
+            if (document.hidden) return;
+
+            try {
+                const res = await fetch('{{ route('dashboard.heartbeat') }}', {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+
+                if (!res.ok) return;
+
+                const data = await res.json();
+                if (String(data.signature ?? '0') !== String(dashboardSignature)) {
+                    window.location.reload();
+                }
+            } catch (error) {
+            }
+        }, 8000);
     </script>
 
     <!-- Chat Modal -->
     <div id="chatModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
             <div class="px-6 py-4 border-b flex justify-between items-center">
-                <h3 class="text-lg font-semibold text-gray-900" id="chatTitle">Chat</h3>
+                <h3 class="text-lg font-semibold text-gray-900" id="chatTitle">Document Questions</h3>
                 <button onclick="closeChatModal()" class="text-gray-500 hover:text-gray-700">✕</button>
             </div>
             <div class="px-6 py-4 max-h-80 overflow-y-auto" id="chatList"></div>
             <div class="px-6 py-4 border-t">
                 <div id="chatForm" class="flex gap-2">
                     <input type="text" id="chatMessage"
-                        class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        placeholder="Type a message..." required>
+                        class="flex-1 border border-teal-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-600 focus:border-teal-600"
+                        placeholder="Type your question..." required>
                     <button type="button"
                         onclick="document.getElementById('chatForm').dispatchEvent(new Event('submit'))"
-                        class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">Send</button>
+                        class="bg-teal-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-teal-800">Send</button>
                 </div>
             </div>
         </div>

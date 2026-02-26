@@ -1,3 +1,27 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+	[x-cloak] {
+		display: none !important;
+	}
+
+	body {
+		@apply bg-slate-50 text-slate-900 antialiased;
+	}
+
+	h1, h2, h3 {
+		@apply tracking-tight;
+	}
+}
+
+@layer components {
+	.app-card {
+		@apply rounded-xl border border-slate-200 bg-white shadow-sm;
+	}
+
+	.app-section {
+		@apply px-4 py-6 sm:px-6 sm:py-8;
+	}
+}

@@ -27,10 +27,10 @@
                         <p class="text-sm text-gray-600 mt-1">Manage the document types required from clients</p>
                     </div>
                     <div class="flex items-center gap-3">
-                        <div class="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg font-semibold text-sm">
+                        <div class="px-4 py-2 bg-emerald-100 text-emerald-800 rounded-lg font-semibold text-sm">
                             {{ count($documentTypes) }} Types
                         </div>
-                        <button onclick="openAddModal()" class="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-2.5 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all">
+                        <button onclick="openAddModal()" class="inline-flex items-center gap-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white px-4 py-2.5 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                             </svg>
@@ -46,7 +46,7 @@
                         </svg>
                         <p class="text-gray-500 text-lg font-medium mb-2">No document types found</p>
                         <p class="text-gray-400 text-sm mb-6">Get started by creating your first document type</p>
-                        <button onclick="openAddModal()" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold transition-colors">
+                        <button onclick="openAddModal()" class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-6 py-2.5 rounded-lg font-semibold transition-colors">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                             </svg>
@@ -72,7 +72,7 @@
                                 @forelse($documentTypes as $index => $type)
                                     <tr class="hover:bg-gray-50 transition-colors duration-150">
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">
+                                            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 font-bold text-sm">
                                                 {{ $index + 1 }}
                                             </span>
                                         </td>
@@ -84,7 +84,7 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             @if($type->required)
-                                                <span class="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
+                                                <span class="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full">
                                                     <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                                                         <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
                                                     </svg>
@@ -118,7 +118,7 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div class="flex gap-2">
                                                 <button onclick="editDocumentType({{ $type->id }}, '{{ str_replace("'", "\\'", $type->doc_type) }}', '{{ str_replace("'", "\\'", $type->description ?? '') }}', {{ $type->required ? 'true' : 'false' }}, {{ $type->active ? 'true' : 'false' }}, {{ $type->sort_order }})" 
-                                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors">
+                                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-teal-700 hover:bg-teal-50 rounded transition-colors">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                                     </svg>
@@ -148,7 +148,7 @@
     <div id="documentTypeModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-2xl max-w-md w-full">
             <!-- Modal Header -->
-            <div class="px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 border-b border-blue-200">
+            <div class="px-6 py-4 bg-gradient-to-r from-teal-600 to-emerald-600 border-b border-emerald-200">
                 <h3 id="modalTitle" class="text-lg font-bold text-white">Add Document Type</h3>
             </div>
 
@@ -162,7 +162,7 @@
                         Document Type Name <span class="text-red-600">*</span>
                     </label>
                     <input type="text" id="modal_doc_type" name="doc_type" placeholder="e.g., Government ID, Passport"
-                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 transition-all" required>
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-900 transition-all" required>
                     <p id="doc_type_error" class="text-red-600 text-sm mt-1 hidden flex items-center gap-1">
                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
@@ -175,15 +175,15 @@
                 <div>
                     <label for="modal_description" class="block text-sm font-semibold text-gray-900 mb-2">Description</label>
                     <textarea id="modal_description" name="description" rows="3" placeholder="Enter a brief description..."
-                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 transition-all resize-none"></textarea>
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-900 transition-all resize-none"></textarea>
                     <p id="description_error" class="text-red-600 text-sm mt-1 hidden"></p>
                 </div>
 
                 <!-- Checkboxes -->
                 <div class="grid grid-cols-2 gap-3 pt-2">
-                    <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-blue-50 cursor-pointer transition-colors">
+                    <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-teal-50 cursor-pointer transition-colors">
                         <input type="checkbox" id="modal_required" name="required" value="1"
-                            class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500">
+                            class="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-2 focus:ring-teal-500">
                         <span class="text-sm font-semibold text-gray-900">Required</span>
                     </label>
                     <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-green-50 cursor-pointer transition-colors">
@@ -197,7 +197,7 @@
                 <div>
                     <label for="modal_sort_order" class="block text-sm font-semibold text-gray-900 mb-2">Sort Order</label>
                     <input type="number" id="modal_sort_order" name="sort_order" placeholder="0" min="0"
-                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 transition-all">
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-900 transition-all">
                     <p id="sort_order_error" class="text-red-600 text-sm mt-1 hidden"></p>
                 </div>
             </form>
@@ -207,7 +207,7 @@
                 <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 rounded-lg font-semibold transition-colors">
                     Cancel
                 </button>
-                <button type="button" onclick="submitDocumentTypeForm()" class="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-semibold transition-all">
+                <button type="button" onclick="submitDocumentTypeForm()" class="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-lg font-semibold transition-all">
                     <span id="submitBtnText">Save</span>
                 </button>
             </div>

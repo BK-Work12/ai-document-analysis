@@ -133,7 +133,7 @@ class DocumentAnalysisJob implements ShouldQueue
             // Create auto-review
             $this->createAutoReview($analysisResult, $confidenceScore, $riskFlags);
 
-            // Auto-request correction if issues detected, or mark approved if all good
+            // Auto-request correction if issues detected, otherwise auto-approve only when confidence is > 85
             $analysisInsufficient = $this->isAnalysisInsufficient(
                 $classification,
                 $confidenceScore,
@@ -150,6 +150,11 @@ class DocumentAnalysisJob implements ShouldQueue
             $hasMissingFields = !empty($missingFields);
             $hasFailedChecks = !empty($failedChecks);
 
+            $hasCorrectionIssues = $classificationMismatch
+                || $hasRiskFlags
+                || $hasMissingFields
+                || $hasFailedChecks;
+
             $canAutoApprove = $this->canAutoApprove(
                 $classificationMismatch,
                 $hasRiskFlags,
@@ -160,23 +165,14 @@ class DocumentAnalysisJob implements ShouldQueue
                 $extractedData,
                 $validationChecks
             );
-
-            $hasCorrectionIssues = $classificationMismatch
-                || $hasRiskFlags
-                || $hasMissingFields
-                || $hasFailedChecks;
             
-            if ($canAutoApprove) {
-                // Fully clean review - mark document as approved
+            if ($hasCorrectionIssues) {
+                $this->autoRequestCorrection($statusService, $classification, $riskFlags, $missingFields, $failedChecks);
+            } elseif ($canAutoApprove) {
+                // No correction issues and confidence is strong enough - approve directly.
                 $previousStatus = $this->document->status;
                 $this->updateDocument(['status' => 'approved']);
                 DocumentStatusUpdated::dispatch($this->document->refresh(), $previousStatus, 'approved');
-            } elseif ($hasCorrectionIssues) {
-                $this->autoRequestCorrection($statusService, $classification, $riskFlags, $missingFields, $failedChecks);
-            } else {
-                // Analysis was not clean enough for approval, but no explicit correction issues.
-                // Keep status pending for manual admin review.
-                $this->updateDocument(['status' => 'pending']);
             }
 
             \Illuminate\Support\Facades\Log::info('DocumentAnalysisJob completed', [
@@ -279,7 +275,7 @@ class DocumentAnalysisJob implements ShouldQueue
         }
 
         // Require strong confidence for fully automatic approval.
-        if ($confidenceScore < 85) {
+        if ($confidenceScore <= 85) {
             return false;
         }
 
@@ -409,7 +405,7 @@ class DocumentAnalysisJob implements ShouldQueue
     {
         // Determine review status based on confidence and flags
         $reviewStatus = 'pending';
-        if ($confidenceScore >= 85 && empty($riskFlags)) {
+        if ($confidenceScore > 85 && empty($riskFlags)) {
             $reviewStatus = 'approved';
         } elseif (!empty($riskFlags)) {
             $reviewStatus = 'needs_revision';
@@ -528,39 +524,39 @@ class DocumentAnalysisJob implements ShouldQueue
         array $failedChecks,
         bool $classificationMismatch
     ): string {
-        $lines = [];
+        $lines = ['Please update this upload:'];
 
         if ($classificationMismatch) {
-            $lines[] = "Document uploaded as '{$this->document->doc_type}' but is actually a {$classification}.";
+            $lines[] = "- This file looks like " . $this->toPlainLabel($classification)
+                . ", but it was uploaded as " . $this->toPlainLabel((string) $this->document->doc_type) . ".";
         }
 
-        if (!empty($missingFields)) {
-            foreach ($missingFields as $field) {
-                $summary = $this->formatFeedbackItem($field);
-                if ($summary !== '') {
-                    $lines[] = "{$summary} are required but not provided in correct upload slot";
-                }
+        foreach ($missingFields as $field) {
+            $summary = $this->toPlainFeedback($this->formatFeedbackItem($field));
+            if ($summary !== '') {
+                $lines[] = "- Please upload " . rtrim($summary, '.') . ".";
             }
         }
 
         $issueItems = [];
-        foreach ($failedChecks as $check) {
-            $formatted = $this->formatFeedbackItem($check);
-            if ($formatted !== '') {
-                $issueItems[] = $formatted;
+        foreach ([$failedChecks, $riskFlags] as $group) {
+            foreach ($group as $item) {
+                $formatted = $this->toPlainFeedback($this->formatFeedbackItem($item));
+                if ($formatted !== '') {
+                    $issueItems[] = $formatted;
+                }
             }
         }
-        foreach ($riskFlags as $flag) {
-            $formatted = $this->formatFeedbackItem($flag);
-            if ($formatted !== '') {
-                $issueItems[] = $formatted;
-            }
+
+        $issueItems = array_values(array_unique($issueItems));
+        $issueItems = array_slice($issueItems, 0, 3);
+
+        foreach ($issueItems as $item) {
+            $lines[] = "- " . rtrim($item, '.') . ".";
         }
-        if (!empty($issueItems)) {
-            $lines[] = "Issues detected:";
-            foreach ($issueItems as $item) {
-                $lines[] = "- " . $item;
-            }
+
+        if (count($lines) === 1) {
+            $lines[] = "- Please review the file and upload the correct document.";
         }
 
         return implode("\n", $lines);
@@ -651,6 +647,33 @@ class DocumentAnalysisJob implements ShouldQueue
         }
 
         return '';
+    }
+
+    protected function toPlainLabel(string $value): string
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return 'this document';
+        }
+
+        return (string) Str::of($trimmed)
+            ->replace('_', ' ')
+            ->replace('-', ' ')
+            ->lower()
+            ->trim();
+    }
+
+    protected function toPlainFeedback(string $text): string
+    {
+        $value = trim($text);
+        if ($value === '') {
+            return '';
+        }
+
+        $value = str_replace(['Issue detected:', 'Issues detected:'], '', $value);
+        $value = preg_replace('/\s+/', ' ', $value) ?? $value;
+
+        return trim($value, " \t\n\r\0\x0B.-");
     }
 
     protected function normalizeDocTypeForComparison(?string $value): string

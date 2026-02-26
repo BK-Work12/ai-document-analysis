@@ -28,6 +28,7 @@ Route::get('/email/resubscribe/{token}', [EmailPreferencesController::class, 're
 // Client Dashboard
 Route::middleware(['auth', 'verified', 'role:client'])->group(function () {
     Route::get('/dashboard', [ClientDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/heartbeat', [ClientDashboardController::class, 'heartbeat'])->name('dashboard.heartbeat');
     Route::post('/documents/upload', [DocumentUploadController::class, 'store'])->name('documents.store');
     Route::get('/chats', [ChatController::class, 'index'])->name('chats.index');
     Route::get('/chats/{document}', [ChatController::class, 'show'])->name('chats.show');
@@ -50,6 +51,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
     Route::get('/admin/clients/{user}', [AdminDashboardController::class, 'showClient'])->name('admin.clients.show');
+    Route::get('/admin/clients/{user}/heartbeat', [AdminDashboardController::class, 'clientHeartbeat'])->name('admin.clients.heartbeat');
     Route::patch('/admin/clients/{user}/profile-update-required', [AdminDashboardController::class, 'flagProfileUpdateRequired'])->name('admin.clients.profile-update-required');
     Route::get('/admin/clients/{user}/email-logs', [AdminDashboardController::class, 'emailLogs'])->name('admin.clients.email-logs');    Route::get('/admin/chats', [AdminChatController::class, 'list'])->name('admin.chats.list');    Route::get('/admin/clients/{user}/chats', [AdminChatController::class, 'index'])->name('admin.chats.index');
     Route::get('/admin/clients/{user}/chats/{document}', [AdminChatController::class, 'show'])->name('admin.chats.show');
