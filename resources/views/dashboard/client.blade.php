@@ -246,9 +246,9 @@
                                         Showing <span id="startRecord">1</span>-<span id="endRecord">20</span> of <span id="totalRecords">{{ count($documents) }}</span> document(s)
                                     </div>
                                     <div class="flex gap-2">
-                                        <button onclick="prevPage()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 transition">← Previous</button>
+                                        <button id="prevPageBtn" type="button" onclick="prevPage()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 transition">← Previous</button>
                                         <span id="pageInfo" class="px-3 py-2 text-sm text-gray-600">Page <span id="currentPage" class="font-semibold">1</span></span>
-                                        <button onclick="nextPage()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 transition">Next →</button>
+                                        <button id="nextPageBtn" type="button" onclick="nextPage()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 transition">Next →</button>
                                     </div>
                                 </div>
                             </div>
@@ -288,6 +288,14 @@
         }
 
         function updateTable() {
+            const totalPages = Math.max(1, Math.ceil(filteredRows.length / recordsPerPage));
+            if (currentPage > totalPages) {
+                currentPage = totalPages;
+            }
+            if (currentPage < 1) {
+                currentPage = 1;
+            }
+
             // Hide all rows
             allRows.forEach(row => row.style.display = 'none');
 
@@ -304,11 +312,23 @@
             });
 
             // Update pagination info
-            const totalPages = Math.ceil(filteredRows.length / recordsPerPage);
             document.getElementById('startRecord').textContent = filteredRows.length === 0 ? 0 : start + 1;
             document.getElementById('endRecord').textContent = Math.min(end, filteredRows.length);
             document.getElementById('totalRecords').textContent = filteredRows.length;
             document.getElementById('currentPage').textContent = currentPage;
+
+            const prevButton = document.getElementById('prevPageBtn');
+            const nextButton = document.getElementById('nextPageBtn');
+            if (prevButton) {
+                prevButton.disabled = currentPage <= 1;
+                prevButton.classList.toggle('opacity-50', currentPage <= 1);
+                prevButton.classList.toggle('cursor-not-allowed', currentPage <= 1);
+            }
+            if (nextButton) {
+                nextButton.disabled = currentPage >= totalPages || filteredRows.length === 0;
+                nextButton.classList.toggle('opacity-50', currentPage >= totalPages || filteredRows.length === 0);
+                nextButton.classList.toggle('cursor-not-allowed', currentPage >= totalPages || filteredRows.length === 0);
+            }
         }
 
         function nextPage() {
@@ -430,9 +450,10 @@
                 if (response.ok) {
                     messageDiv.className =
                         'p-3 rounded-lg bg-green-100 border border-green-300 text-green-800 text-sm';
-                    messageDiv.textContent = '✓ Upload complete. Updating your list...';
+                    messageDiv.textContent = '✓ Upload complete. Please refresh manually to see latest status updates.';
                     messageDiv.classList.remove('hidden');
-                    setTimeout(() => location.reload(), 1500);
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
                 } else {
                     throw new Error(data.message || 'Upload failed. Please try again.');
                 }
@@ -535,6 +556,7 @@
                 chatList
             } = getChatRefs();
             if (!activeDocumentId) return;
+            const previousScrollTop = chatList.scrollTop;
             chatList.innerHTML = '<p class="text-sm text-gray-500">Loading messages...</p>';
             try {
                 const res = await fetch(`/documents/${activeDocumentId}/messages`);
@@ -555,7 +577,7 @@
                     `;
                     chatList.appendChild(bubble);
                 });
-                chatList.scrollTop = chatList.scrollHeight;
+                chatList.scrollTop = Math.min(previousScrollTop, chatList.scrollHeight);
             } catch (err) {
                 chatList.innerHTML = `<p class="text-sm text-red-600">Unable to load messages right now.</p>`;
             }
@@ -605,28 +627,8 @@
         window.openChatModal = openChatModal;
         window.closeChatModal = closeChatModal;
 
-        let dashboardSignature = '{{ $dashboardSignature ?? '0' }}';
-
-        setInterval(async () => {
-            if (document.hidden) return;
-
-            try {
-                const res = await fetch('{{ route('dashboard.heartbeat') }}', {
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                });
-
-                if (!res.ok) return;
-
-                const data = await res.json();
-                if (String(data.signature ?? '0') !== String(dashboardSignature)) {
-                    window.location.reload();
-                }
-            } catch (error) {
-            }
-        }, 8000);
+        window.nextPage = nextPage;
+        window.prevPage = prevPage;
     </script>
 
     <!-- Chat Modal -->

@@ -60,6 +60,7 @@
                 const response = await fetch(`/documents/${documentId}/messages`);
                 const data = await response.json();
                 const container = document.getElementById('messagesContainer');
+                const previousScrollTop = container.scrollTop;
                 container.innerHTML = '';
 
                 if (data.messages.length === 0) {
@@ -81,8 +82,7 @@
                     container.appendChild(messageEl);
                 });
 
-                // Scroll to bottom
-                container.scrollTop = container.scrollHeight;
+                container.scrollTop = Math.min(previousScrollTop, container.scrollHeight);
             } catch (error) {
                 console.error('Error loading messages:', error);
             }
