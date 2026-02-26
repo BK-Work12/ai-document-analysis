@@ -157,7 +157,11 @@
                                         <a href="{{ route('register') }}" class="px-4 py-2.5 border border-[#2d7670]/30 text-[#2d7670] rounded-lg font-medium hover:bg-[#2d7670]/5 transition-all duration-200">Sign up</a>
                                     @endif
                                 @endauth
-                                <a href="#eligibility" class="px-6 py-2.5 bg-primary text-white rounded-lg font-medium hover:shadow-lg transition-all duration-200">Check Eligibility</a>
+                                @auth
+                                    <a href="{{ route('dashboard') }}" class="px-6 py-2.5 bg-primary text-white rounded-lg font-medium hover:opacity-90 transition-all duration-200">Check Eligibility</a>
+                                @else
+                                    <a href="{{ route('login') }}" class="px-6 py-2.5 bg-primary text-white rounded-lg font-medium hover:opacity-90 transition-all duration-200">Check Eligibility</a>
+                                @endauth
                             </div>
 
                             <!-- Mobile Menu Toggle -->
@@ -188,7 +192,11 @@
                                     <a href="{{ route('register') }}" class="mt-2 px-6 py-3 border border-[#2d7670]/30 text-[#2d7670] rounded-lg font-semibold text-center" @click="isMobileMenuOpen = false">Sign up</a>
                                 @endif
                             @endauth
-                            <a href="#eligibility" class="mt-2 px-6 py-3 bg-primary text-white rounded-lg font-semibold text-center" @click="isMobileMenuOpen = false">Check Eligibility</a>
+                            @auth
+                                <a href="{{ route('dashboard') }}" class="mt-2 px-6 py-3 bg-primary text-white rounded-lg font-semibold text-center" @click="isMobileMenuOpen = false">Check Eligibility</a>
+                            @else
+                                <a href="{{ route('login') }}" class="mt-2 px-6 py-3 bg-primary text-white rounded-lg font-semibold text-center" @click="isMobileMenuOpen = false">Check Eligibility</a>
+                            @endauth
                         </nav>
                     </div>
         </header>
@@ -221,20 +229,27 @@
                     <!-- CTA Buttons -->
                     <div class="flex flex-col sm:flex-row gap-4 justify-center mb-12">
                         @auth
-                            <a href="{{ route('dashboard') }}" class="px-8 py-4 border-2 border-[#2d7670] text-[#2d7670] rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:bg-green-50 transition">Go to Dashboard</a>
+                            <a href="{{ route('dashboard') }}" class="px-8 py-4 bg-white/90 border border-border text-foreground rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:bg-white transition">Go to Dashboard</a>
                         @else
                             @if (Route::has('login'))
-                                <a href="{{ route('login') }}" class="px-8 py-4 border-2 border-[#2d7670] text-[#2d7670] rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:bg-green-50 transition">Log in</a>
+                                <a href="{{ route('login') }}" class="px-8 py-4 bg-white/90 border border-border text-foreground rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:bg-white transition">Log in</a>
                             @endif
                             @if (Route::has('register'))
-                                <a href="{{ route('register') }}" class="px-8 py-4 border-2 border-[#2d7670] text-[#2d7670] rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:bg-green-50 transition">Create Account</a>
+                                <a href="{{ route('register') }}" class="px-8 py-4 bg-white/90 border border-border text-foreground rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:bg-white transition">Create Account</a>
                             @endif
                         @endauth
-                        <a href="#eligibility" class="group bg-primary px-8 py-4 text-white rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:shadow-xl transition-all duration-200 transform hover:-translate-y-1">
-                            Check My Eligibility Now
-                            <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7l7 7-7 7"/></svg>
-                        </a>
-                        <a href="#how-it-works" class="px-8 py-4 border-2 border-[#2d7670] text-[#2d7670] rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:bg-green-50 transition">See How It Works</a>
+                        @auth
+                            <a href="{{ route('dashboard') }}" class="group bg-primary px-8 py-4 text-white rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:opacity-90 transition-all duration-200 transform hover:-translate-y-1">
+                                Check My Eligibility Now
+                                <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7l7 7-7 7"/></svg>
+                            </a>
+                        @else
+                            <a href="{{ route('login') }}" class="group bg-primary px-8 py-4 text-white rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:opacity-90 transition-all duration-200 transform hover:-translate-y-1">
+                                Check My Eligibility Now
+                                <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7l7 7-7 7"/></svg>
+                            </a>
+                        @endauth
+                        <a href="#how-it-works" class="px-8 py-4 bg-white/90 border border-border text-foreground rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:bg-white transition">See How It Works</a>
                     </div>
                     <!-- Features List -->
                     <div class="flex flex-wrap justify-center gap-6 text-gray-700/70 text-sm">
@@ -379,37 +394,39 @@
                         </div>
                     </div>
                     <div class="relative">
-                        <div class="bg-gradient-to-br from-gray-100 to-gray-50 rounded-2xl p-8 lg:p-12">
+                        <div class="bg-gradient-to-br from-primary/10 to-white rounded-2xl p-8 lg:p-12 border border-primary/20">
                             <div class="space-y-6">
                                 <div class="flex items-center gap-4">
-                                    <div class="w-16 h-16 rounded-full bg-gray-300/40 animate-pulse" ></div>
+                                    <div class="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center" >
+                                        <svg class="w-8 h-8 text-[#2d7670]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3v2.25M14.25 3v2.25M4.5 8.25h15M6.75 6h10.5A2.25 2.25 0 0119.5 8.25v9A2.25 2.25 0 0117.25 19.5H6.75A2.25 2.25 0 014.5 17.25v-9A2.25 2.25 0 016.75 6zM9 12.75l1.5 1.5 3.75-3.75"/></svg>
+                                    </div>
                                     <div class="space-y-2 flex-1">
-                                        <div class="h-4 bg-gray-300/40 rounded w-3/4 animate-pulse" ></div>
-                                        <div class="h-3 bg-gray-200/40 rounded w-1/2 animate-pulse" ></div>
+                                        <p class="text-sm font-semibold text-foreground">AI Document Review</p>
+                                        <p class="text-xs text-muted-foreground">Secure automated analysis + eligibility checks</p>
                                     </div>
                                 </div>
-                                <div class="space-y-3">
-                                    <div class="h-3 bg-gray-200/40 rounded w-full animate-pulse" ></div>
-                                    <div class="h-3 bg-gray-200/30 rounded w-5/6 animate-pulse" ></div>
-                                    <div class="h-3 bg-gray-200/30 rounded w-4/6 animate-pulse" ></div>
+                                <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                                    <div class="bg-white/80 border border-border rounded-md py-2 text-foreground">Upload</div>
+                                    <div class="bg-primary/15 border border-primary/30 rounded-md py-2 text-[#2d7670] font-medium">AI Analysis</div>
+                                    <div class="bg-white/80 border border-border rounded-md py-2 text-foreground">Result</div>
                                 </div>
                                 <div class="flex items-center justify-center py-8">
                                     <div class="text-center">
-                                        <div class="inline-flex items-center gap-2 text-gray-400">
-                                            <div class="w-2 h-2 rounded-full bg-gray-300/60 animate-pulse" ></div>
-                                            <span class="text-sm">Waiting for review...</span>
+                                        <div class="inline-flex items-center gap-2 text-[#2d7670]">
+                                            <div class="w-2.5 h-2.5 rounded-full bg-[#2d7670] animate-pulse" ></div>
+                                            <span class="text-sm font-medium">AI review in progress...</span>
                                         </div>
-                                        <p class="text-xs text-gray-400/60 mt-2">Estimated time: 2-4 weeks</p>
+                                        <p class="text-xs text-muted-foreground mt-2">Estimated time: 24-48 hours</p>
                                     </div>
                                 </div>
-                                <div class="h-2 bg-gray-200/20 rounded-full overflow-hidden">
-                                    <div class="h-full w-1/4 bg-gray-300/40 rounded-full" ></div>
+                                <div class="h-2 bg-white rounded-full overflow-hidden border border-primary/20">
+                                    <div class="h-full w-2/3 bg-primary rounded-full" ></div>
                                 </div>
                             </div>
                         </div>
                         <!-- Decorative label -->
-                        <div class="absolute -top-3 -right-3 bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow">
-                            Outdated Process
+                        <div class="absolute -top-3 -right-3 bg-primary text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow">
+                            AI Process
                         </div>
                     </div>
                 </div>
@@ -489,7 +506,7 @@
                 </section>
 
                <!-- Benefits Section -->
-                <section class="py-20 lg:py-28 bg-white">
+                <section id="benefits" class="py-20 lg:py-28 bg-white scroll-mt-24">
                     <div class="container mx-auto">
                         <div class="text-center max-w-3xl mx-auto mb-16">
                             <h2 class="font-display text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-6">What You'll Gain</h2>
@@ -640,7 +657,7 @@
                 </section>
   
       <!-- How It Works Section -->
-                <section class="py-20 lg:py-28 bg-white">
+                <section id="how-it-works" class="py-20 lg:py-28 bg-white scroll-mt-24">
                     <div class="container mx-auto">
                         <div class="text-center max-w-3xl mx-auto mb-16">
                             <h2 class="font-display text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-6">How It Works</h2>
@@ -812,7 +829,7 @@
                         </section>
 
   <!-- FAQ Section -->
-                <section class="py-20 lg:py-28 bg-gray-100">
+                <section id="faq" class="py-20 lg:py-28 bg-gray-100 scroll-mt-24">
                     <div class="container mx-auto">
                         <div class="text-center max-w-3xl mx-auto mb-16">
                             <h2 class="font-display text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-6">Common Questions</h2>
