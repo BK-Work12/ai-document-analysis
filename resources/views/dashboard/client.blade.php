@@ -170,7 +170,7 @@
                                     </thead>
                                     <tbody class="divide-y divide-gray-200" id="tableBody">
                                         @forelse($documents as $index => $doc)
-                                            <tr class="hover:bg-gray-50 transition-colors table-row" data-status="{{ $doc->status }}" data-type="{{ $doc->doc_type }}" data-date="{{ $doc->uploaded_at?->timestamp ?? 0 }}" data-index="{{ $index + 1 }}">
+                                            <tr class="hover:bg-gray-50 transition-colors table-row table-main-row" data-doc-id="{{ $doc->id }}" data-status="{{ $doc->status }}" data-type="{{ $doc->doc_type }}" data-date="{{ $doc->uploaded_at?->timestamp ?? 0 }}" data-index="{{ $index + 1 }}">
                                                 <td class="px-6 py-4 text-gray-600 font-medium w-12"><span class="sr-number">{{ $index + 1 }}</span></td>
                                                 <td class="px-6 py-4">
                                                     <span class="font-medium text-gray-900">{{ ucfirst(str_replace('_', ' ', $doc->doc_type)) }}</span>
@@ -197,14 +197,13 @@
                                                     <div class="flex gap-3">
                                                         <button onclick="downloadDocument({{ $doc->id }})"
                                                             class="text-teal-700 hover:text-teal-900 text-xs font-medium hover:underline">Download</button>
-                                                        <button
-                                                            onclick="openChatModal({{ $doc->id }}, '{{ ucfirst(str_replace('_', ' ', $doc->doc_type)) }}')"
-                                                            class="text-emerald-700 hover:text-emerald-900 text-xs font-medium hover:underline">Ask a question</button>
+                                                        <a href="{{ route('chats.show', $doc->id) }}"
+                                                            class="text-emerald-700 hover:text-emerald-900 text-xs font-medium hover:underline">Ask a question</a>
                                                     </div>
                                                 </td>
                                             </tr>
                                             @if ($doc->correction_feedback || $doc->notes)
-                                                <tr class="bg-red-50 table-row" data-status="{{ $doc->status }}" data-type="{{ $doc->doc_type }}" data-date="{{ $doc->uploaded_at?->timestamp ?? 0 }}" data-index="{{ $index + 1 }}">
+                                                <tr class="bg-red-50 table-row table-detail-row" data-parent-doc-id="{{ $doc->id }}" data-status="{{ $doc->status }}" data-type="{{ $doc->doc_type }}" data-date="{{ $doc->uploaded_at?->timestamp ?? 0 }}" data-index="{{ $index + 1 }}">
                                                     <td colspan="6" class="px-6 py-4">
                                                         <div class="flex items-start gap-3">
                                                             <svg class="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0"
@@ -264,10 +263,12 @@
         let currentPage = 1;
         const recordsPerPage = 20;
         let allRows = [];
+        let detailRows = [];
         let filteredRows = [];
 
         function initializeTable() {
-            allRows = Array.from(document.querySelectorAll('#tableBody .table-row'));
+            allRows = Array.from(document.querySelectorAll('#tableBody .table-main-row'));
+            detailRows = Array.from(document.querySelectorAll('#tableBody .table-detail-row'));
             applyFilters();
         }
 
@@ -298,6 +299,7 @@
 
             // Hide all rows
             allRows.forEach(row => row.style.display = 'none');
+            detailRows.forEach(row => row.style.display = 'none');
 
             // Show filtered and paginated rows
             const start = (currentPage - 1) * recordsPerPage;
@@ -308,6 +310,14 @@
                 const srNumber = row.querySelector('.sr-number');
                 if (srNumber) {
                     srNumber.textContent = start + index + 1;
+                }
+
+                const docId = row.getAttribute('data-doc-id');
+                if (docId) {
+                    const detailRow = document.querySelector(`#tableBody .table-detail-row[data-parent-doc-id="${docId}"]`);
+                    if (detailRow) {
+                        detailRow.style.display = 'table-row';
+                    }
                 }
             });
 
