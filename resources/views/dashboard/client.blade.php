@@ -43,10 +43,10 @@
             </div>
         </div>
         <div class="max-w-7xl mx-auto p-6">
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <!-- Left Sidebar - Upload Form -->
-                <div class="lg:col-span-1">
-                    <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-y-auto p-6 sticky top-6">
+            <div class="flex flex-col gap-6">
+                <!-- Top Section - Upload Form -->
+                <div class="w-full">
+                    <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
                         <div class="flex items-center gap-3 mb-6">
                             <div class="w-10 h-10 bg-gradient-to-br from-teal-700 to-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
                                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -111,8 +111,8 @@
                     </div>
                 </div>
 
-                <!-- Right Main Area - Documents Table -->
-                <div class="lg:col-span-3">
+                <!-- Bottom Section - Documents Table -->
+                <div class="w-full">
                     <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden flex flex-col">
                         <div class="p-6 border-b border-gray-200">
                             <div class="flex items-center gap-3 mb-6">
