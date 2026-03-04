@@ -90,16 +90,68 @@ class AdminUserDocumentChatService
                 ];
             }
 
+            $responseContent = trim((string) ($response['content'] ?? ''));
+            $totalInputTokens = (int) ($response['input_tokens'] ?? 0);
+            $totalOutputTokens = (int) ($response['output_tokens'] ?? 0);
+            $stopReason = (string) ($response['stop_reason'] ?? 'end_turn');
+            $continuationAttempts = 0;
+            $maxContinuationAttempts = max(2, (int) env('BEDROCK_CHAT_MAX_CONTINUATIONS', 12));
+            $latestAssistantChunk = $responseContent;
+
+            while ($stopReason === 'max_tokens' && $continuationAttempts < $maxContinuationAttempts) {
+                $continuationAttempts++;
+
+                if ($latestAssistantChunk !== '') {
+                    $messages[] = [
+                        'role' => 'assistant',
+                        'content' => $latestAssistantChunk,
+                    ];
+                }
+
+                $messages[] = [
+                    'role' => 'user',
+                    'content' => 'Continue exactly from where you stopped. Return only the continuation and do not repeat earlier text.',
+                ];
+
+                $continuation = $this->callBedrockChat($messages, $systemPrompt);
+                if (!$continuation['success']) {
+                    break;
+                }
+
+                $continuationText = trim((string) ($continuation['content'] ?? ''));
+                if ($continuationText === '') {
+                    break;
+                }
+
+                $responseContent = trim($responseContent . "\n\n" . $continuationText);
+                $latestAssistantChunk = $continuationText;
+                $totalInputTokens += (int) ($continuation['input_tokens'] ?? 0);
+                $totalOutputTokens += (int) ($continuation['output_tokens'] ?? 0);
+                $stopReason = (string) ($continuation['stop_reason'] ?? 'end_turn');
+            }
+
+            if ($stopReason === 'max_tokens') {
+                $responseContent = rtrim($responseContent) . "\n\n[Response reached model length limit after auto-continuation. Ask 'continue' to keep going.]";
+            }
+
+            if ($responseContent === '') {
+                return [
+                    'success' => false,
+                    'error' => 'AI returned an empty response. Please try again.',
+                ];
+            }
+
             $aiMessage = AdminUserChatMessage::create([
                 'admin_user_conversation_id' => $conversation->id,
                 'sender_type' => 'ai',
-                'message' => $response['content'],
+                'message' => $responseContent,
                 'role' => 'assistant',
                 'metadata' => [
                     'model' => $this->modelId,
-                    'input_tokens' => $response['input_tokens'] ?? 0,
-                    'output_tokens' => $response['output_tokens'] ?? 0,
-                    'stop_reason' => $response['stop_reason'] ?? 'end_turn',
+                    'input_tokens' => $totalInputTokens,
+                    'output_tokens' => $totalOutputTokens,
+                    'stop_reason' => $stopReason,
+                    'continuation_attempts' => $continuationAttempts,
                 ],
                 'sent_at' => now(),
             ]);
@@ -109,7 +161,7 @@ class AdminUserDocumentChatService
             return [
                 'success' => true,
                 'message' => $aiMessage,
-                'content' => $response['content'],
+                'content' => $responseContent,
                 'metadata' => $aiMessage->metadata,
             ];
         } catch (Exception $e) {
@@ -256,9 +308,19 @@ PROMPT . "\n\n" . $context;
                     ],
                 ]);
 
+                $outputBlocks = $result['output']['message']['content'] ?? [];
+                $content = $this->extractTextFromContentBlocks(is_array($outputBlocks) ? $outputBlocks : []);
+
+                if ($content === '') {
+                    return [
+                        'success' => false,
+                        'error' => 'AI returned an empty response block.',
+                    ];
+                }
+
                 return [
                     'success' => true,
-                    'content' => $result['output']['message']['content'][0]['text'] ?? '',
+                    'content' => $content,
                     'input_tokens' => $result['usage']['inputTokens'] ?? 0,
                     'output_tokens' => $result['usage']['outputTokens'] ?? 0,
                     'stop_reason' => $result['stopReason'] ?? 'end_turn',
@@ -279,9 +341,19 @@ PROMPT . "\n\n" . $context;
 
             $response = json_decode((string) $result['body'], true);
 
+            $contentBlocks = $response['content'] ?? [];
+            $content = $this->extractTextFromContentBlocks(is_array($contentBlocks) ? $contentBlocks : []);
+
+            if ($content === '') {
+                return [
+                    'success' => false,
+                    'error' => 'AI returned an empty response block.',
+                ];
+            }
+
             return [
                 'success' => true,
-                'content' => $response['content'][0]['text'] ?? '',
+                'content' => $content,
                 'input_tokens' => $response['usage']['input_tokens'] ?? 0,
                 'output_tokens' => $response['usage']['output_tokens'] ?? 0,
                 'stop_reason' => $response['stop_reason'] ?? 'end_turn',
@@ -298,5 +370,26 @@ PROMPT . "\n\n" . $context;
                 'error' => $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Extract and join all text blocks returned by Bedrock/Claude.
+     *
+     * @param array<int, mixed> $blocks
+     */
+    protected function extractTextFromContentBlocks(array $blocks): string
+    {
+        $parts = [];
+
+        foreach ($blocks as $block) {
+            if (is_array($block) && is_string($block['text'] ?? null)) {
+                $text = trim($block['text']);
+                if ($text !== '') {
+                    $parts[] = $text;
+                }
+            }
+        }
+
+        return trim(implode("\n\n", $parts));
     }
 }
