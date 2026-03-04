@@ -84,10 +84,34 @@ class AdminUserDocumentChatService
             $response = $this->callBedrockChat($messages, $systemPrompt);
 
             if (!$response['success']) {
-                return [
-                    'success' => false,
-                    'error' => $response['error'],
-                ];
+                $responseError = strtolower((string) ($response['error'] ?? ''));
+
+                if (str_contains($responseError, 'empty response block')) {
+                    $retryMessages = $messages;
+                    $retryMessages[] = [
+                        'role' => 'user',
+                        'content' => 'Please answer the last user question in plain text only. Do not leave the response empty.',
+                    ];
+
+                    $retry = $this->callBedrockChat($retryMessages, $systemPrompt);
+
+                    if ($retry['success']) {
+                        $response = $retry;
+                    } else {
+                        $response = [
+                            'success' => true,
+                            'content' => "I couldn't generate a complete answer for that step. Please ask again or rephrase your request, and I'll continue.",
+                            'input_tokens' => (int) ($response['input_tokens'] ?? 0),
+                            'output_tokens' => 0,
+                            'stop_reason' => 'empty_response_fallback',
+                        ];
+                    }
+                } else {
+                    return [
+                        'success' => false,
+                        'error' => $response['error'],
+                    ];
+                }
             }
 
             $responseContent = trim((string) ($response['content'] ?? ''));
@@ -135,10 +159,8 @@ class AdminUserDocumentChatService
             }
 
             if ($responseContent === '') {
-                return [
-                    'success' => false,
-                    'error' => 'AI returned an empty response. Please try again.',
-                ];
+                $responseContent = "I couldn't generate a complete answer for that step. Please ask again or rephrase your request, and I'll continue.";
+                $stopReason = 'empty_response_fallback';
             }
 
             $aiMessage = AdminUserChatMessage::create([
