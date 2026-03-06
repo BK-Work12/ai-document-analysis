@@ -42,9 +42,16 @@ class TextExtractJob implements ShouldQueue
      */
     public int $backoff = 300; // 5 minutes
 
+    /**
+     * The number of seconds the job can run before timing out.
+     */
+    public int $timeout = 300; // 5 minutes
+
+
     public function __construct(
         public Document $document,
-    ) {}
+    ) {
+    }
 
     /**
      * Execute the job
@@ -425,8 +432,7 @@ class TextExtractJob implements ShouldQueue
         ?string $mimeType,
         string $s3Key,
         bool $useLocal
-    ): void
-    {
+    ): void {
         $normalizedMime = is_string($mimeType) ? strtolower($mimeType) : '';
 
         if ($normalizedMime === 'application/msword') {
@@ -554,9 +560,9 @@ class TextExtractJob implements ShouldQueue
 
     protected function buildFallbackAnalysisText(string $reason): string
     {
-        $filename = (string)($this->document->original_filename ?? 'unknown');
-        $docType = (string)($this->document->doc_type ?? 'unknown');
-        $mime = (string)($this->document->detected_mime ?? 'unknown');
+        $filename = (string) ($this->document->original_filename ?? 'unknown');
+        $docType = (string) ($this->document->doc_type ?? 'unknown');
+        $mime = (string) ($this->document->detected_mime ?? 'unknown');
 
         return implode("\n", [
             'OCR extraction was unsuccessful, but analysis should still proceed using available metadata.',

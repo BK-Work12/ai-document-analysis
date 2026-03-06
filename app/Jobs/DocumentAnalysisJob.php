@@ -48,9 +48,16 @@ class DocumentAnalysisJob implements ShouldQueue
      */
     public int $backoff = 300; // 5 minutes
 
+    /**
+     * The number of seconds the job can run before timing out.
+     */
+    public int $timeout = 300; // 5 minutes
+
+
     public function __construct(
         public Document $document,
-    ) {}
+    ) {
+    }
 
     /**
      * Execute the job
@@ -89,7 +96,7 @@ class DocumentAnalysisJob implements ShouldQueue
             } else {
                 $result = $analysisService->analyzeDocumentFromImage(
                     $this->getDocumentBytesForClaude(),
-                    (string)$this->document->detected_mime,
+                    (string) $this->document->detected_mime,
                     $this->document->original_filename,
                     $this->document->doc_type
                 );
@@ -165,7 +172,7 @@ class DocumentAnalysisJob implements ShouldQueue
                 $extractedData,
                 $validationChecks
             );
-            
+
             if ($hasCorrectionIssues) {
                 $this->autoRequestCorrection($statusService, $classification, $riskFlags, $missingFields, $failedChecks);
             } elseif ($canAutoApprove) {
@@ -302,7 +309,7 @@ class DocumentAnalysisJob implements ShouldQueue
                 $severity = $this->normalizeFlagSeverity($flag['severity'] ?? 'medium');
             } else {
                 $flagType = 'risk';
-                $description = (string)$flag;
+                $description = (string) $flag;
                 $severity = 'medium';
             }
 
@@ -415,7 +422,7 @@ class DocumentAnalysisJob implements ShouldQueue
             'document_id' => $this->document->id,
             'review_status' => $reviewStatus,
             'auto_review_results' => $analysisResult,
-            'quality_score' => (int)$confidenceScore,
+            'quality_score' => (int) $confidenceScore,
             'auto_reviewed_at' => now(),
             'review_notes' => $this->generateReviewNotes($confidenceScore, $riskFlags),
         ]);
@@ -578,7 +585,7 @@ class DocumentAnalysisJob implements ShouldQueue
                 $passed = $check['passed'] ?? null;
                 $message = $check['message'] ?? $check['check'] ?? $check['rule'] ?? $check['description'] ?? null;
 
-                $isFailed = ($status && strtolower((string)$status) !== 'pass') || ($passed === false);
+                $isFailed = ($status && strtolower((string) $status) !== 'pass') || ($passed === false);
                 if ($isFailed) {
                     $failed[] = $message ?? json_encode($check);
                 }
@@ -619,7 +626,7 @@ class DocumentAnalysisJob implements ShouldQueue
         }
 
         if (!is_array($item)) {
-            return trim((string)$item);
+            return trim((string) $item);
         }
 
         if ($this->isListArray($item)) {
@@ -643,7 +650,7 @@ class DocumentAnalysisJob implements ShouldQueue
             ?? null;
 
         if ($summary) {
-            return trim((string)$summary);
+            return trim((string) $summary);
         }
 
         return '';
