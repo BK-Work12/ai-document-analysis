@@ -53,6 +53,7 @@ class TextExtractService
                         'Name' => $s3ObjectKey,
                     ],
                 ],
+                'FeatureTypes' => ['TABLES', 'FORMS'],
             ];
 
             // Add SNS notification if provided
