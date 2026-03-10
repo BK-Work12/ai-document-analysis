@@ -46,9 +46,9 @@ class Kernel extends ConsoleKernel
                 \Log::info('Failed email retry completed');
             });
 
-        // Resolve stale pending documents every 30 minutes
-        $schedule->command(ResolveStalePendingDocumentsCommand::class, ['--hours' => 2])
-            ->everyThirtyMinutes()
+        // Resolve stale pending/processing documents every 10 minutes
+        $schedule->command(ResolveStalePendingDocumentsCommand::class, ['--minutes' => 20])
+            ->everyTenMinutes()
             ->withoutOverlapping()
             ->onSuccess(function () {
                 \Log::info('Stale pending document resolution completed');
