@@ -161,11 +161,14 @@ class TextExtractJob implements ShouldQueue
                             'text_extraction_metadata' => [
                                 'job_id' => $result['job_id'],
                                 'async' => true,
+                                'doc_type' => $this->document->doc_type,
+                                'original_filename' => $this->document->original_filename,
+                                'started_at' => now()->toISOString(),
                             ],
                         ]);
 
-                        // Job will be completed when SNS notification arrives
-                        return;
+                        // Poll async job directly to avoid indefinite processing when SNS callback is unavailable.
+                        $result = $this->waitForAsyncTextractResult($textExtractService, $result['job_id']);
                     }
                 }
             }
@@ -572,5 +575,104 @@ class TextExtractJob implements ShouldQueue
             "Extraction Failure: {$reason}",
             'Please classify document type, identify likely missing information, and provide conservative risk flags due to unavailable OCR text.',
         ]);
+    }
+
+    protected function waitForAsyncTextractResult(
+        TextExtractService $textExtractService,
+        string $jobId,
+        int $maxAttempts = 60,
+        int $sleepSeconds = 5
+    ): array {
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            $result = $textExtractService->getDocumentAnalysisResults($jobId, 1000);
+
+            if (!($result['success'] ?? false)) {
+                return $result;
+            }
+
+            $status = strtoupper((string) ($result['status'] ?? ''));
+
+            if ($status === 'SUCCEEDED') {
+                return $this->collectAsyncTextractSuccessResult($textExtractService, $result, $jobId);
+            }
+
+            if (in_array($status, ['FAILED', 'PARTIAL_SUCCESS'], true)) {
+                return [
+                    'success' => false,
+                    'error' => "Async Textract job {$jobId} ended with status {$status}.",
+                    'error_code' => $status,
+                ];
+            }
+
+            sleep($sleepSeconds);
+        }
+
+        return [
+            'success' => false,
+            'error' => "Async Textract job {$jobId} timed out while waiting for completion.",
+            'error_code' => 'ASYNC_TIMEOUT',
+        ];
+    }
+
+    protected function collectAsyncTextractSuccessResult(
+        TextExtractService $textExtractService,
+        array $initialResult,
+        string $jobId
+    ): array {
+        $blocks = $initialResult['blocks'] ?? [];
+        $nextToken = $initialResult['next_token'] ?? null;
+        $pages = (int) ($initialResult['pages'] ?? 0);
+        $warnings = $initialResult['warnings'] ?? [];
+
+        while (is_string($nextToken) && $nextToken !== '') {
+            $pageResult = $textExtractService->getDocumentAnalysisResults($jobId, 1000, $nextToken);
+
+            if (!($pageResult['success'] ?? false)) {
+                return $pageResult;
+            }
+
+            $blocks = array_merge($blocks, $pageResult['blocks'] ?? []);
+            $warnings = array_merge($warnings, $pageResult['warnings'] ?? []);
+            $nextToken = $pageResult['next_token'] ?? null;
+
+            if (!$pages && !empty($pageResult['pages'])) {
+                $pages = (int) $pageResult['pages'];
+            }
+        }
+
+        return [
+            'success' => true,
+            'extracted_text' => $this->extractTextFromBlocks($blocks),
+            'metadata' => [
+                'job_id' => $jobId,
+                'async' => true,
+                'resolved_by' => 'polling',
+                'pages' => $pages,
+                'detected_lines' => $this->countBlocksByType($blocks, 'LINE'),
+                'detected_words' => $this->countBlocksByType($blocks, 'WORD'),
+                'warnings' => $warnings,
+            ],
+        ];
+    }
+
+    protected function extractTextFromBlocks(array $blocks): string
+    {
+        $textParts = [];
+
+        foreach ($blocks as $block) {
+            if (($block['BlockType'] ?? null) === 'LINE' && isset($block['Text'])) {
+                $textParts[] = (string) $block['Text'];
+            }
+        }
+
+        return implode("\n", $textParts);
+    }
+
+    protected function countBlocksByType(array $blocks, string $blockType): int
+    {
+        return count(array_filter(
+            $blocks,
+            fn ($block) => ($block['BlockType'] ?? null) === $blockType
+        ));
     }
 }
