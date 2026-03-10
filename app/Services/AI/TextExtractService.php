@@ -53,7 +53,7 @@ class TextExtractService
                         'Name' => $s3ObjectKey,
                     ],
                 ],
-                'FeatureTypes' => ['TABLES', 'FORMS'],
+                'FeatureTypes' => ['FORMS', 'TABLES', 'SIGNATURES'],
             ];
 
             // Add SNS notification if provided
@@ -195,7 +195,7 @@ class TextExtractService
             ]);
 
             $extractedText = $this->extractTextFromBlocks($result['Blocks']);
-            
+
             return [
                 'success' => true,
                 'extracted_text' => $extractedText,
@@ -344,7 +344,7 @@ class TextExtractService
         foreach ($blocks as $block) {
             if ($block['BlockType'] === 'KEY_VALUE_SET' && $block['EntityTypes'][0] === 'KEY') {
                 $keyText = $this->extractTextFromKeyValueSet($block, $blockMap);
-                
+
                 // Find corresponding VALUE
                 if (isset($block['Relationships'])) {
                     foreach ($block['Relationships'] as $rel) {
