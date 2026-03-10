@@ -9,23 +9,40 @@ use Illuminate\Console\Command;
 
 class ResolveStalePendingDocumentsCommand extends Command
 {
-    protected $signature = 'documents:resolve-stale-pending {--hours=2 : Minimum age (hours) before a pending document is considered stale}';
+    protected $signature = 'documents:resolve-stale-pending
+                            {--minutes=20 : Minimum age (minutes) before a pending/processing document is considered stale}
+                            {--hours= : Backward-compatible override in hours (deprecated)}';
 
     protected $description = 'Resolve stale pending documents by re-queuing stuck jobs and moving failed/stale records to needs_correction';
 
     public function handle(): int
     {
-        $hours = max(1, (int) $this->option('hours'));
-        $threshold = now()->subHours($hours);
+        $hoursOverride = $this->option('hours');
+        $minutes = is_null($hoursOverride)
+            ? max(5, (int) $this->option('minutes'))
+            : max(1, (int) $hoursOverride) * 60;
+
+        $threshold = now()->subMinutes($minutes);
 
         $documents = Document::query()
             ->where('status', 'pending')
-            ->where('uploaded_at', '<=', $threshold)
+            ->where(function ($query) use ($threshold) {
+                $query
+                    ->where('uploaded_at', '<=', $threshold)
+                    ->orWhere(function ($inner) use ($threshold) {
+                        $inner->whereIn('extraction_status', ['pending', 'processing'])
+                            ->where('extraction_started_at', '<=', $threshold);
+                    })
+                    ->orWhere(function ($inner) use ($threshold) {
+                        $inner->whereIn('analysis_status', ['pending', 'processing'])
+                            ->where('analysis_started_at', '<=', $threshold);
+                    });
+            })
             ->orderBy('uploaded_at')
             ->get();
 
         if ($documents->isEmpty()) {
-            $this->info("No stale pending documents older than {$hours} hour(s).");
+            $this->info("No stale pending documents older than {$minutes} minute(s).");
             return self::SUCCESS;
         }
 
