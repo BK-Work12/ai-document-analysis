@@ -486,10 +486,13 @@
                 if (response.ok) {
                     messageDiv.className =
                         'p-3 rounded-lg bg-green-100 border border-green-300 text-green-800 text-sm';
-                    messageDiv.textContent = '✓ Upload complete. Please refresh manually to see latest status updates.';
+                    messageDiv.textContent = '✓ Upload complete. Refreshing dashboard...';
                     messageDiv.classList.remove('hidden');
                     btn.disabled = false;
                     btn.innerHTML = originalText;
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 800);
                 } else {
                     throw new Error(data.message || 'Upload failed. Please try again.');
                 }
