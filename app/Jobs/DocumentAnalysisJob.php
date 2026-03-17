@@ -86,7 +86,7 @@ class DocumentAnalysisJob implements ShouldQueue
                 'analysis_started_at' => now(),
             ]);
 
-            // Analyze either extracted text or the original image directly via Claude vision
+            // Analyze either extracted text or the original document directly via Claude
             if ($hasExtractedText) {
                 $result = $analysisService->analyzeDocument(
                     $this->document->extracted_text,
@@ -94,7 +94,8 @@ class DocumentAnalysisJob implements ShouldQueue
                     $this->document->doc_type
                 );
             } else {
-                $result = $analysisService->analyzeDocumentFromImage(
+                // Use the unified method that handles both images and documents (PDFs, etc.)
+                $result = $analysisService->analyzeDocumentFromFile(
                     $this->getDocumentBytesForClaude(),
                     (string) $this->document->detected_mime,
                     $this->document->original_filename,
@@ -215,6 +216,41 @@ class DocumentAnalysisJob implements ShouldQueue
     }
 
     protected function canAnalyzeDirectWithClaude(): bool
+    {
+        $mime = is_string($this->document->detected_mime)
+            ? strtolower($this->document->detected_mime)
+            : '';
+
+        // Image types supported by Claude vision
+        $imageTypes = [
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/webp',
+            'image/gif',
+        ];
+
+        // Document types supported by Bedrock document input
+        $documentTypes = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'text/plain',
+            'text/markdown',
+            'text/html',
+            'text/csv',
+            'application/csv',
+        ];
+
+        return in_array($mime, $imageTypes, true) || in_array($mime, $documentTypes, true);
+    }
+
+    /**
+     * Check if this is an image type (vs document type) for selecting the right analysis method.
+     */
+    protected function isImageType(): bool
     {
         $mime = is_string($this->document->detected_mime)
             ? strtolower($this->document->detected_mime)

@@ -40,6 +40,11 @@ class SettingsController extends Controller
                 'client_id' => $this->getEnvValue('GOOGLE_CLIENT_ID'),
                 'client_secret' => $this->getEnvValue('GOOGLE_CLIENT_SECRET'),
             ],
+            'ocr' => [
+                'ocr_enabled' => $this->getEnvValue('OCR_ENABLED') !== 'false',
+                'ocr_max_file_size_mb' => (int) ($this->getEnvValue('OCR_MAX_FILE_SIZE_MB') ?: 10),
+                'large_file_bedrock_manual' => $this->getEnvValue('LARGE_FILE_BEDROCK_MANUAL') !== 'false',
+            ],
         ];
 
         return view('admin.settings.index', compact('settings'));
@@ -184,6 +189,27 @@ class SettingsController extends Controller
         }
 
         return redirect()->route('admin.settings.index')->with('success', 'Google OAuth settings updated successfully!');
+    }
+
+    public function updateOcr(Request $request)
+    {
+        $validated = $request->validate([
+            'ocr_enabled' => 'boolean',
+            'ocr_max_file_size_mb' => 'required|integer|min:1|max:100',
+            'large_file_bedrock_manual' => 'boolean',
+        ]);
+
+        $this->updateEnvFile([
+            'OCR_ENABLED' => ($validated['ocr_enabled'] ?? false) ? 'true' : 'false',
+            'OCR_MAX_FILE_SIZE_MB' => (string) $validated['ocr_max_file_size_mb'],
+            'LARGE_FILE_BEDROCK_MANUAL' => ($validated['large_file_bedrock_manual'] ?? false) ? 'true' : 'false',
+        ]);
+
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'OCR settings updated successfully!']);
+        }
+
+        return redirect()->route('admin.settings.index')->with('success', 'OCR settings updated successfully!');
     }
 
     private function updateEnvFile(array $values)

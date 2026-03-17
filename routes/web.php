@@ -81,6 +81,7 @@ Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
     Route::patch('/admin/settings/bedrock', [SettingsController::class, 'updateBedrock'])->name('admin.settings.updateBedrock');
     Route::patch('/admin/settings/ses', [SettingsController::class, 'updateSES'])->name('admin.settings.updateSES');
     Route::patch('/admin/settings/google', [SettingsController::class, 'updateGoogle'])->name('admin.settings.updateGoogle');
+    Route::patch('/admin/settings/ocr', [SettingsController::class, 'updateOcr'])->name('admin.settings.updateOcr');
 
     // Email Templates
     Route::get('/admin/email-templates', [\App\Http\Controllers\Admin\EmailTemplateController::class, 'index'])->name('admin.email-templates.index');

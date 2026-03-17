@@ -130,6 +130,79 @@ class DocumentAnalysisService
     }
 
     /**
+     * Analyze document directly from file bytes using appropriate Bedrock method.
+     * Handles both images (via Claude vision) and documents (via Claude document input).
+     */
+    public function analyzeDocumentFromFile(
+        string $fileBytes,
+        string $fileMime,
+        string $originalFilename,
+        string $docType
+    ): array {
+        $imageFormat = $this->mapMimeToBedrockImageFormat($fileMime);
+        $documentFormat = $this->mapMimeToBedrockDocumentFormat($fileMime);
+
+        // Use image analysis for image types
+        if ($imageFormat !== null) {
+            return $this->analyzeDocumentFromImage($fileBytes, $fileMime, $originalFilename, $docType);
+        }
+
+        // Use document analysis for document types (PDF, DOCX, etc.)
+        if ($documentFormat !== null) {
+            return $this->analyzeDocumentFromDocumentInput($fileBytes, $fileMime, $originalFilename, $docType);
+        }
+
+        return [
+            'success' => false,
+            'error' => "Unsupported file type for direct Bedrock analysis: {$fileMime}",
+        ];
+    }
+
+    /**
+     * Analyze document directly from document bytes using Claude document input.
+     * Used for PDFs, DOCX, and other document types.
+     */
+    public function analyzeDocumentFromDocumentInput(
+        string $documentBytes,
+        string $documentMime,
+        string $originalFilename,
+        string $docType
+    ): array {
+        try {
+            $prompt = $this->buildVisionAnalysisPrompt($originalFilename, $docType);
+            $analysisSystemPrompt = "You are an expert AI Financial Case Analyst. Provide structured, fact-based analysis without fabrication.";
+            $response = $this->callBedrockWithDocument($prompt, $documentBytes, $documentMime, $originalFilename, $analysisSystemPrompt);
+
+            if (!$response['success']) {
+                return [
+                    'success' => false,
+                    'error' => $response['error'],
+                ];
+            }
+
+            $analysisResult = $this->parseAnalysisResponse($response['content']);
+
+            return [
+                'success' => true,
+                'analysis_result' => $analysisResult,
+                'metadata' => [
+                    'model' => $this->modelId,
+                    'analysis_mode' => 'direct_document',
+                    'input_tokens' => $response['input_tokens'] ?? 0,
+                    'output_tokens' => $response['output_tokens'] ?? 0,
+                    'stop_reason' => $response['stop_reason'] ?? 'end_turn',
+                ],
+                'confidence_score' => $analysisResult['confidence_score'] ?? 0,
+            ];
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Extract raw text directly from document bytes via Claude document input.
      */
     public function extractTextFromDocument(string $documentBytes, string $documentMime, string $filename): array
@@ -482,7 +555,7 @@ PROMPT;
         }
     }
 
-    protected function callBedrockWithDocument(string $prompt, string $documentBytes, string $documentMime, string $filename): array
+    protected function callBedrockWithDocument(string $prompt, string $documentBytes, string $documentMime, string $filename, ?string $customSystemPrompt = null): array
     {
         try {
             $format = $this->mapMimeToBedrockDocumentFormat($documentMime);
@@ -496,7 +569,7 @@ PROMPT;
 
             $safeName = Str::limit(pathinfo($filename, PATHINFO_FILENAME) ?: 'uploaded_document', 60, '');
 
-            $systemPrompt = "You are an OCR assistant. Return only faithfully extracted text from the attached document.";
+            $systemPrompt = $customSystemPrompt ?? "You are an OCR assistant. Return only faithfully extracted text from the attached document.";
 
             $result = $this->bedrockClient->converse([
                 'modelId' => $this->modelId,

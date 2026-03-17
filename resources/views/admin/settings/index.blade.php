@@ -250,6 +250,109 @@
                 </div>
             </div>
 
+            <!-- OCR Limits Settings Card -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+                <div class="px-6 py-4 bg-gradient-to-r from-rose-50 to-orange-50 border-b border-gray-200">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-rose-100 rounded-lg">
+                            <svg class="w-5 h-5 text-rose-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">OCR Processing Limits</h3>
+                            <p class="text-sm text-gray-600">Control OCR behavior and file size limits for Textract processing</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <form action="{{ route('admin.settings.updateOcr') }}" method="POST" class="space-y-4">
+                        @csrf
+                        @method('patch')
+
+                        <div class="space-y-4">
+                            <!-- OCR Enabled Toggle -->
+                            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                                <div>
+                                    <p class="font-semibold text-gray-900">Enable OCR Processing</p>
+                                    <p class="text-sm text-gray-600">When enabled, documents will be processed through AWS Textract for text extraction</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input type="hidden" name="ocr_enabled" value="0">
+                                    <label class="inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" name="ocr_enabled" value="1" 
+                                            {{ ($settings['ocr']['ocr_enabled'] ?? true) ? 'checked' : '' }}
+                                            class="w-5 h-5 text-rose-600 bg-gray-100 border-gray-300 rounded focus:ring-rose-500 focus:ring-2">
+                                        <span class="ml-2 text-sm font-medium text-gray-700">
+                                            {{ ($settings['ocr']['ocr_enabled'] ?? true) ? 'Enabled' : 'Disabled' }}
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Max File Size -->
+                            <div>
+                                <label for="ocr_max_file_size_mb" class="block text-sm font-semibold text-gray-900 mb-2">
+                                    Maximum File Size for OCR (MB) <span class="text-red-600">*</span>
+                                </label>
+                                <input type="number" id="ocr_max_file_size_mb" name="ocr_max_file_size_mb" 
+                                    value="{{ $settings['ocr']['ocr_max_file_size_mb'] ?? 10 }}"
+                                    min="1" max="100" step="1"
+                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 text-gray-900 transition-all" required>
+                                @error('ocr_max_file_size_mb')
+                                    <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                                @enderror
+                                <p class="text-xs text-gray-500 mt-1">Files larger than this will skip OCR and require manual Bedrock analysis. Textract sync limit is 5MB.</p>
+                            </div>
+
+                            <!-- Large File Bedrock Manual Toggle -->
+                            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                                <div>
+                                    <p class="font-semibold text-gray-900">Manual Bedrock Analysis for Large Files</p>
+                                    <p class="text-sm text-gray-600">When enabled, files exceeding the size limit will be flagged for manual review and Bedrock analysis instead of automatic OCR</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input type="hidden" name="large_file_bedrock_manual" value="0">
+                                    <label class="inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" name="large_file_bedrock_manual" value="1" 
+                                            {{ ($settings['ocr']['large_file_bedrock_manual'] ?? true) ? 'checked' : '' }}
+                                            class="w-5 h-5 text-rose-600 bg-gray-100 border-gray-300 rounded focus:ring-rose-500 focus:ring-2">
+                                        <span class="ml-2 text-sm font-medium text-gray-700">
+                                            {{ ($settings['ocr']['large_file_bedrock_manual'] ?? true) ? 'Enabled' : 'Disabled' }}
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                                <div class="flex items-start gap-3">
+                                    <svg class="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    <div>
+                                        <p class="font-semibold text-amber-800">How it works</p>
+                                        <ul class="text-sm text-amber-700 mt-1 list-disc list-inside space-y-1">
+                                            <li>Files within the size limit: Automatic OCR via Textract, then Bedrock analysis</li>
+                                            <li>Files exceeding size limit: Skip OCR, flag as "pending_manual_review" for direct Bedrock analysis</li>
+                                            <li>OCR disabled: All files skip Textract and go to Bedrock directly</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end pt-4 border-t border-gray-200">
+                            <button type="submit" style="background-color: #e11d48; color: white; padding: 10px 24px; border-radius: 8px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer;">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 20px; height: 20px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                Save OCR Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
             <!-- SES Settings Card -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
                 <div class="px-6 py-4 bg-gradient-to-r from-teal-50 to-cyan-50 border-b border-gray-200">

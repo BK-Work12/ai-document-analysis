@@ -65,6 +65,43 @@ class TextExtractJob implements ShouldQueue
                 'extraction_started_at' => now(),
             ]);
 
+            // Check OCR settings from admin configuration
+            $ocrEnabled = env('OCR_ENABLED', 'true') !== 'false';
+            $maxFileSizeMb = (int) env('OCR_MAX_FILE_SIZE_MB', 10);
+            $largeFileBedrockManual = env('LARGE_FILE_BEDROCK_MANUAL', 'true') !== 'false';
+
+            // Get file size for limit check
+            $s3Key = $this->document->s3_key;
+            $useLocal = env('USE_LOCAL_STORAGE', true);
+            $fileSize = $useLocal 
+                ? Storage::disk('local')->size($s3Key)
+                : Storage::disk('s3')->size($s3Key);
+            $fileSizeMb = $fileSize / (1024 * 1024);
+
+            // Check if OCR is disabled globally
+            if (!$ocrEnabled) {
+                $this->skipOcrForManualBedrock(
+                    'OCR is disabled in admin settings. Document will be analyzed directly via Bedrock.',
+                    'ocr_disabled',
+                    $fileSizeMb
+                );
+                return;
+            }
+
+            // Check if file exceeds the configurable size limit
+            if ($fileSizeMb > $maxFileSizeMb && $largeFileBedrockManual) {
+                $this->skipOcrForManualBedrock(
+                    sprintf(
+                        'File size (%.2f MB) exceeds OCR limit (%d MB). Document flagged for manual Bedrock analysis.',
+                        $fileSizeMb,
+                        $maxFileSizeMb
+                    ),
+                    'file_too_large',
+                    $fileSizeMb
+                );
+                return;
+            }
+
             // Skip unsupported formats (Textract supports PDF/JPG/PNG/TIFF)
             $mimeType = $this->document->detected_mime;
             $supported = [
@@ -75,10 +112,6 @@ class TextExtractJob implements ShouldQueue
                 'image/tiff',
                 'image/tif',
             ];
-
-            // Get storage disk and key
-            $s3Key = $this->document->s3_key;
-            $useLocal = env('USE_LOCAL_STORAGE', true);
 
             if ($this->isWordDocumentMime($mimeType)) {
                 $this->processWordDocumentWithoutTextract($analysisService, $mimeType, $s3Key, $useLocal);
@@ -286,6 +319,39 @@ class TextExtractJob implements ShouldQueue
             'image/webp',
             'image/gif',
         ], true);
+    }
+
+    /**
+     * Skip OCR and flag document for manual Bedrock analysis.
+     * Used when OCR is disabled or file size exceeds configured limits.
+     */
+    protected function skipOcrForManualBedrock(string $reason, string $mode, float $fileSizeMb): void
+    {
+        $this->updateDocument([
+            'status' => 'pending_manual_review',
+            'extraction_status' => 'skipped',
+            'extraction_error' => null,
+            'extraction_completed_at' => now(),
+            'text_extraction_metadata' => [
+                'skipped' => true,
+                'mode' => $mode,
+                'reason' => $reason,
+                'file_size_mb' => round($fileSizeMb, 2),
+                'requires_manual_bedrock' => true,
+                'ocr_enabled' => env('OCR_ENABLED', 'true') !== 'false',
+                'ocr_max_file_size_mb' => (int) env('OCR_MAX_FILE_SIZE_MB', 10),
+            ],
+        ]);
+
+        \Illuminate\Support\Facades\Log::info('OCR skipped for manual Bedrock analysis', [
+            'document_id' => $this->document->id,
+            'reason' => $reason,
+            'mode' => $mode,
+            'file_size_mb' => round($fileSizeMb, 2),
+        ]);
+
+        // Dispatch DocumentAnalysisJob for direct Bedrock analysis
+        DocumentAnalysisJob::dispatch($this->document);
     }
 
     protected function canDirectExtractWithClaude(?string $mimeType): bool
